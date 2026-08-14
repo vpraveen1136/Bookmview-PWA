@@ -226,20 +226,22 @@ export function WatchPage() {
     failureHandledRef.current = null;
   }, [activeId]);
 
+  const swipeEnabled = !animating && !findingNext && !scrubbing;
+
+  const handleSwipeUp = useCallback(() => {
+    if (drawerOpen) setDrawerOpen(false);
+    goRelative(1);
+  }, [drawerOpen, goRelative]);
+
+  const handleSwipeDown = useCallback(() => {
+    if (drawerOpen) setDrawerOpen(false);
+    goRelative(-1);
+  }, [drawerOpen, goRelative]);
+
   const swipeHandlers = useVerticalSwipe({
-    enabled: !animating && !findingNext && !scrubbing,
-    onSwipeUp: () => {
-      if (drawerOpen) {
-        setDrawerOpen(false);
-      }
-      goRelative(1);
-    },
-    onSwipeDown: () => {
-      if (drawerOpen) {
-        setDrawerOpen(false);
-      }
-      goRelative(-1);
-    },
+    enabled: swipeEnabled,
+    onSwipeUp: handleSwipeUp,
+    onSwipeDown: handleSwipeDown,
   });
 
   const scheduleHideControls = useCallback(() => {
@@ -467,6 +469,9 @@ export function WatchPage() {
                     onError={isCurrent ? onPlaybackError : undefined}
                     onScrubbingChange={isCurrent ? setScrubbing : undefined}
                     seekApiRef={isCurrent ? seekApiRef : null}
+                    swipeEnabled={isCurrent ? swipeEnabled : false}
+                    onSwipeUp={isCurrent ? handleSwipeUp : undefined}
+                    onSwipeDown={isCurrent ? handleSwipeDown : undefined}
                   />
                 ) : (
                   <div className="watch-slot watch-slot-empty" />

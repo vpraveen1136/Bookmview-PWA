@@ -37,7 +37,8 @@ export function useVerticalSwipe({
 
   const onTouchStart = (event) => {
     if (!enabled || isInteractiveTarget(event.target)) return;
-    const touch = event.changedTouches[0];
+    const touch = event.touches[0] || event.changedTouches[0];
+    if (!touch) return;
     touchRef.current = {
       y: touch.clientY,
       x: touch.clientX,
@@ -48,7 +49,8 @@ export function useVerticalSwipe({
 
   const onTouchMove = (event) => {
     if (!enabled || !touchRef.current.active) return;
-    const touch = event.changedTouches[0];
+    const touch = event.touches[0] || event.changedTouches[0];
+    if (!touch) return;
     const deltaY = touch.clientY - touchRef.current.y;
     const deltaX = touch.clientX - touchRef.current.x;
     if (Math.abs(deltaX) > Math.abs(deltaY)) return;

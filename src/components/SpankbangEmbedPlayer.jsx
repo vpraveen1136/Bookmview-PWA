@@ -16,6 +16,7 @@ export function SpankbangEmbedPlayer({
   chromeVisible = false,
   showTitle = false,
   titleMeta = null,
+  swipeRails = null,
 }) {
   const embedUrl = embedUrlProp || resolveSpankbangEmbedUrl(bookmark);
   const [loadState, setLoadState] = useState('loading');
@@ -77,6 +78,8 @@ export function SpankbangEmbedPlayer({
           />
         ) : null}
       </div>
+
+      {isActive && swipeRails}
 
       {isActive && controlsShown && showTitle && titleMeta ? (
         <div className="watch-title-banner watch-chrome-fade is-visible" onClick={(e) => e.stopPropagation()}>

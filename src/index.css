@@ -512,6 +512,33 @@ a {
   justify-content: center;
 }
 
+.watch-embed-swipe-rails {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  pointer-events: none;
+}
+
+.watch-embed-swipe-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: max(20%, 3.25rem);
+  max-width: 5.5rem;
+  pointer-events: auto;
+  touch-action: none;
+  /* invisible hit target — does not dim the player */
+  background: transparent;
+}
+
+.watch-embed-swipe-rail-left {
+  left: 0;
+}
+
+.watch-embed-swipe-rail-right {
+  right: 0;
+}
+
 .video-surface-bg {
   position: absolute;
   inset: -12%;
