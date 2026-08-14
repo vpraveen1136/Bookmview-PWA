@@ -1791,6 +1791,10 @@ button.watch-sheet-link,
   justify-content: center;
 }
 
+.sheet-root-overlay {
+  z-index: 200;
+}
+
 .sheet-backdrop {
   position: absolute;
   inset: 0;
@@ -2105,6 +2109,11 @@ html.app-uses-window-scroll .app-shell-body {
 
 .sheet-panel-compact {
   max-height: min(42dvh, 360px);
+}
+
+.sheet-panel-actions {
+  max-height: none;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
 }
 
 .sheet-actions {

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import { DefaultPlaybackModeSettings } from './DefaultPlaybackModeSettings.jsx';
 
@@ -14,8 +15,8 @@ export function FilterSheet({ open, onClose, title, children }) {
 
   if (!open) return null;
 
-  return (
-    <div className="sheet-root" role="dialog" aria-modal="true" aria-label={title}>
+  const sheet = (
+    <div className="sheet-root sheet-root-overlay" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" className="sheet-backdrop" aria-label="Close filters" onClick={onClose} />
       <div className="sheet-panel">
         <div className="sheet-header">
@@ -31,6 +32,8 @@ export function FilterSheet({ open, onClose, title, children }) {
       </div>
     </div>
   );
+
+  return createPortal(sheet, document.body);
 }
 
 function FilterGroup({ label, children }) {

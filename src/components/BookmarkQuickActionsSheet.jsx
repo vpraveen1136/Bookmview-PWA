@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export function BookmarkQuickActionsSheet({
   open,
@@ -17,10 +18,10 @@ export function BookmarkQuickActionsSheet({
 
   if (!open) return null;
 
-  return (
-    <div className="sheet-root" role="dialog" aria-modal="true" aria-label={title || 'Bookmark actions'}>
+  const sheet = (
+    <div className="sheet-root sheet-root-overlay" role="dialog" aria-modal="true" aria-label={title || 'Bookmark actions'}>
       <button type="button" className="sheet-backdrop" aria-label="Close" onClick={onClose} />
-      <div className="sheet-panel sheet-panel-compact">
+      <div className="sheet-panel sheet-panel-actions">
         <div className="sheet-header">
           <div>
             <h2 className="sheet-title">{title || 'Bookmark'}</h2>
@@ -48,4 +49,6 @@ export function BookmarkQuickActionsSheet({
       </div>
     </div>
   );
+
+  return createPortal(sheet, document.body);
 }
