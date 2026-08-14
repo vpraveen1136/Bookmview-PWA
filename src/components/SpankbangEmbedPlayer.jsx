@@ -5,6 +5,7 @@ import {
   resolveSpankbangEmbedUrl,
   resolveSpankbangVideoPageUrl,
 } from '../lib/spankbangEmbed.js';
+import { WatchEmbedSwipeRails } from './WatchEmbedSwipeRails.jsx';
 
 const LOAD_TIMEOUT_MS = 20000;
 
@@ -16,7 +17,9 @@ export function SpankbangEmbedPlayer({
   chromeVisible = false,
   showTitle = false,
   titleMeta = null,
-  swipeRails = null,
+  swipeEnabled = true,
+  onSwipeUp,
+  onSwipeDown,
 }) {
   const embedUrl = embedUrlProp || resolveSpankbangEmbedUrl(bookmark);
   const [loadState, setLoadState] = useState('loading');
@@ -45,6 +48,7 @@ export function SpankbangEmbedPlayer({
   const pageUrl = getBookmarkPageUrl(bookmark) || resolveSpankbangVideoPageUrl(bookmark);
 
   const controlsShown = Boolean(chromeVisible);
+  const showSwipeZone = isActive && onSwipeUp && onSwipeDown;
 
   if (!embedUrl) {
     return (
@@ -60,7 +64,7 @@ export function SpankbangEmbedPlayer({
   }
 
   return (
-    <div className={`spankbang-embed-player ${controlsShown ? 'chrome-visible' : ''} ${className}`}>
+    <div className={`spankbang-embed-player spankbang-embed-player-short ${controlsShown ? 'chrome-visible' : ''} ${className}`}>
       <div className="spankbang-embed-player-frame-wrap">
         {isActive ? (
           <iframe
@@ -77,51 +81,60 @@ export function SpankbangEmbedPlayer({
             onLoad={onIframeLoad}
           />
         ) : null}
+
+        {isActive && controlsShown && showTitle && titleMeta ? (
+          <div className="watch-title-banner watch-chrome-fade is-visible" onClick={(e) => e.stopPropagation()}>
+            <span className="watch-source-pill">{titleMeta.source}</span>
+            <p className="watch-title-overlay">{titleMeta.title}</p>
+          </div>
+        ) : null}
+
+        {loadState === 'loading' && isActive ? (
+          <div className="spankbang-embed-player-status" role="status">
+            Loading SpankBang player…
+          </div>
+        ) : null}
+
+        {loadState === 'error' ? (
+          <div className="spankbang-embed-player-error" role="alert">
+            <p className="playback-error-title">Unable to load SpankBang player</p>
+            <div className="spankbang-embed-player-error-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setRetryKey((k) => k + 1);
+                }}
+              >
+                Retry
+              </button>
+              {pageUrl ? (
+                <a
+                  className="btn"
+                  href={pageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  Open Source
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      {isActive && swipeRails}
-
-      {isActive && controlsShown && showTitle && titleMeta ? (
-        <div className="watch-title-banner watch-chrome-fade is-visible" onClick={(e) => e.stopPropagation()}>
-          <span className="watch-source-pill">{titleMeta.source}</span>
-          <p className="watch-title-overlay">{titleMeta.title}</p>
-        </div>
-      ) : null}
-
-      {loadState === 'loading' && isActive ? (
-        <div className="spankbang-embed-player-status" role="status">
-          Loading SpankBang player…
-        </div>
-      ) : null}
-
-      {loadState === 'error' ? (
-        <div className="spankbang-embed-player-error" role="alert">
-          <p className="playback-error-title">Unable to load SpankBang player</p>
-          <div className="spankbang-embed-player-error-actions">
-            <button
-              type="button"
-              className="btn"
-              onClick={(event) => {
-                event.stopPropagation();
-                setRetryKey((k) => k + 1);
-              }}
-            >
-              Retry
-            </button>
-            {pageUrl ? (
-              <a
-                className="btn"
-                href={pageUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(event) => event.stopPropagation()}
-              >
-                Open Source
-              </a>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {showSwipeZone ? (
+        <WatchEmbedSwipeRails
+          variant="bottom"
+          enabled={swipeEnabled}
+          onSwipeUp={onSwipeUp}
+          onSwipeDown={onSwipeDown}
+        />
+      ) : (
+        <div className="spankbang-embed-player-swipe-spacer" aria-hidden="true" />
+      )}
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import { useVerticalSwipe } from '../hooks/useVerticalSwipe.js';
 
 /**
- * Edge swipe targets for cross-origin iframe embeds (touches do not bubble to the parent).
- * Left/right rails capture vertical swipes; center remains interactive with the iframe.
+ * Swipe targets for cross-origin iframe embeds (touches do not bubble to the parent).
+ * - bottom: full-width lower band (used with shortened iframe layout)
+ * - edges: left/right rails over a full-height iframe
  */
 export function WatchEmbedSwipeRails({
+  variant = 'edges',
   enabled = true,
   onSwipeUp,
   onSwipeDown,
@@ -14,6 +16,16 @@ export function WatchEmbedSwipeRails({
     onSwipeUp,
     onSwipeDown,
   });
+
+  if (variant === 'bottom') {
+    return (
+      <div
+        className="watch-embed-swipe-rail watch-embed-swipe-rail-bottom"
+        aria-hidden="true"
+        {...swipe}
+      />
+    );
+  }
 
   return (
     <div className="watch-embed-swipe-rails" aria-hidden="true">

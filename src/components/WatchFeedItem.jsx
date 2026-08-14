@@ -9,7 +9,6 @@ import {
 
 import { SpankbangEmbedPlayer } from './SpankbangEmbedPlayer.jsx';
 import { VideoSurface } from './VideoSurface.jsx';
-import { WatchEmbedSwipeRails } from './WatchEmbedSwipeRails.jsx';
 
 export function WatchFeedItem({
   bookmark,
@@ -83,15 +82,9 @@ export function WatchFeedItem({
             chromeVisible={showControls}
             showTitle={titleVisible}
             titleMeta={titleMeta}
-            swipeRails={
-              isActive && onSwipeUp && onSwipeDown ? (
-                <WatchEmbedSwipeRails
-                  enabled={swipeEnabled}
-                  onSwipeUp={onSwipeUp}
-                  onSwipeDown={onSwipeDown}
-                />
-              ) : null
-            }
+            swipeEnabled={swipeEnabled}
+            onSwipeUp={isActive ? onSwipeUp : undefined}
+            onSwipeDown={isActive ? onSwipeDown : undefined}
           />
         </div>
       </div>
