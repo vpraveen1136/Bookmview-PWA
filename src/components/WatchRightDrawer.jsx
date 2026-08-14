@@ -6,6 +6,7 @@ import {
   getBookmarkPageUrl,
   resolvePlayMediaMp4Url,
 } from '../lib/playback.js';
+import { canUseSpankbangEmbedPlayback } from '../lib/spankbangEmbed.js';
 import {
   getBookmarkHlsUrl,
   getBookmarkMp4Url,
@@ -52,6 +53,7 @@ export function WatchRightDrawer({
 
   const pageUrl = bookmark ? getBookmarkPageUrl(bookmark) : null;
   const playMediaUrl = bookmark ? resolvePlayMediaMp4Url(bookmark) : null;
+  const spankbangEmbed = bookmark ? canUseSpankbangEmbedPlayback(bookmark) : false;
   const playback = playbackState?.playback;
   const sourceCopyUrl = bookmark ? getBookmarkSourceUrl(bookmark) : null;
   const mp4CopyUrl = bookmark ? getBookmarkMp4Url(bookmark) : null;
@@ -83,14 +85,16 @@ export function WatchRightDrawer({
         onTouchStart={(event) => event.stopPropagation()}
       >
         <div className="watch-drawer-actions">
-          <button
-            type="button"
-            className="watch-drawer-action"
-            onClick={() => setModeOpen((v) => !v)}
-          >
-            <span className="watch-drawer-icon" aria-hidden="true">M</span>
-            <span className="watch-drawer-label">Mode</span>
-          </button>
+          {!spankbangEmbed ? (
+            <button
+              type="button"
+              className="watch-drawer-action"
+              onClick={() => setModeOpen((v) => !v)}
+            >
+              <span className="watch-drawer-icon" aria-hidden="true">M</span>
+              <span className="watch-drawer-label">Mode</span>
+            </button>
+          ) : null}
           <button
             type="button"
             className="watch-drawer-action"
@@ -100,24 +104,28 @@ export function WatchRightDrawer({
             <span className="watch-drawer-icon" aria-hidden="true">S</span>
             <span className="watch-drawer-label">Source</span>
           </button>
-          <button
-            type="button"
-            className="watch-drawer-action"
-            onClick={() => onCopy('MP4 URL', mp4CopyUrl)}
-            disabled={!mp4CopyUrl}
-          >
-            <span className="watch-drawer-icon" aria-hidden="true">4</span>
-            <span className="watch-drawer-label">MP4</span>
-          </button>
-          <button
-            type="button"
-            className="watch-drawer-action"
-            onClick={() => onCopy('HLS URL', hlsCopyUrl)}
-            disabled={!hlsCopyUrl}
-          >
-            <span className="watch-drawer-icon" aria-hidden="true">H</span>
-            <span className="watch-drawer-label">HLS</span>
-          </button>
+          {!spankbangEmbed ? (
+            <button
+              type="button"
+              className="watch-drawer-action"
+              onClick={() => onCopy('MP4 URL', mp4CopyUrl)}
+              disabled={!mp4CopyUrl}
+            >
+              <span className="watch-drawer-icon" aria-hidden="true">4</span>
+              <span className="watch-drawer-label">MP4</span>
+            </button>
+          ) : null}
+          {!spankbangEmbed ? (
+            <button
+              type="button"
+              className="watch-drawer-action"
+              onClick={() => onCopy('HLS URL', hlsCopyUrl)}
+              disabled={!hlsCopyUrl}
+            >
+              <span className="watch-drawer-icon" aria-hidden="true">H</span>
+              <span className="watch-drawer-label">HLS</span>
+            </button>
+          ) : null}
           <button
             type="button"
             className="watch-drawer-action"
@@ -157,7 +165,7 @@ export function WatchRightDrawer({
 
         {copyNote ? <p className="watch-drawer-note">{copyNote}</p> : null}
 
-        {modeOpen ? (
+        {modeOpen && !spankbangEmbed ? (
           <div className="watch-drawer-mode-panel">
             <DefaultPlaybackModeSettings compact />
             <WatchPlaybackControls

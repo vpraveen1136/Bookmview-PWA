@@ -457,6 +457,61 @@ a {
   overflow: hidden;
 }
 
+.spankbang-embed-player {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.spankbang-embed-player-frame-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.spankbang-embed-player-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000;
+}
+
+.spankbang-embed-player-status {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.spankbang-embed-player-error {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(8, 8, 12, 0.88);
+  text-align: center;
+}
+
+.spankbang-embed-player-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
 .video-surface-bg {
   position: absolute;
   inset: -12%;

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 const MIN_SWIPE_PX = 56;
 const MAX_SWIPE_MS = 500;
@@ -19,6 +19,21 @@ export function useVerticalSwipe({
   onDragEnd,
 }) {
   const touchRef = useRef({ y: 0, x: 0, t: 0, active: false });
+
+  useEffect(() => {
+    const resetTouch = () => {
+      touchRef.current = { y: 0, x: 0, t: 0, active: false };
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') resetTouch();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pageshow', resetTouch);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pageshow', resetTouch);
+    };
+  }, []);
 
   const onTouchStart = (event) => {
     if (!enabled || isInteractiveTarget(event.target)) return;

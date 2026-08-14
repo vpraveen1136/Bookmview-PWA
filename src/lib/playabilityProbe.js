@@ -3,6 +3,7 @@ import { ensureProxyForPlaybackUrl } from './mediaProxyReady.js';
 import { getMediaFetchOptions } from './mediaProxyUrl.js';
 import { resolveMp4ProbePlayback } from './playbackModes.js';
 import { resolveHlsPlayback } from './playback.js';
+import { isSpankbangIframeEligible } from './spankbangEmbed.js';
 
 /**
  * Lightweight playability probe for one bookmark.
@@ -12,6 +13,10 @@ import { resolveHlsPlayback } from './playback.js';
  */
 export async function probeBookmarkPlayability(bookmark, signal) {
   if (!bookmark) return 'non_playable';
+
+  if (isSpankbangIframeEligible(bookmark)) {
+    return 'playable';
+  }
 
   const mp4Playback = resolveMp4ProbePlayback(bookmark);
   if (mp4Playback?.url) {
@@ -82,5 +87,6 @@ export function isLikelyNetworkFailure(error) {
 }
 
 export function bookmarkHasProbeableMedia(bookmark) {
+  if (isSpankbangIframeEligible(bookmark)) return true;
   return Boolean(resolveMp4ProbePlayback(bookmark)?.url || resolveHlsPlayback(bookmark)?.url);
 }

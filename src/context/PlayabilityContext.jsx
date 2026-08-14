@@ -26,6 +26,7 @@ import {
   sortLibraryByDeckOrder,
 } from '../lib/discoveryDeck.js';
 import { filterRefreshEligible } from '../lib/lastRefreshSuccess.js';
+import { isSpankbangIframeEligible } from '../lib/spankbangEmbed.js';
 
 const PlayabilityContext = createContext(null);
 
@@ -44,10 +45,18 @@ export function PlayabilityProvider({ children }) {
   const saveTimerRef = useRef(null);
   const deckSaveTimerRef = useRef(null);
 
-  const eligibleLibrary = useMemo(
-    () => filterRefreshEligible(library || [], library || []),
-    [library],
-  );
+  const eligibleLibrary = useMemo(() => {
+    const refreshEligible = filterRefreshEligible(library || [], library || []);
+    const seen = new Set(refreshEligible.map((item) => String(item.tweet_id)));
+    const spankbangExtra = (library || []).filter((item) => {
+      const id = String(item?.tweet_id || '');
+      if (!id || seen.has(id)) return false;
+      if (!isSpankbangIframeEligible(item)) return false;
+      seen.add(id);
+      return true;
+    });
+    return [...refreshEligible, ...spankbangExtra];
+  }, [library]);
 
   const eligibleIds = useMemo(
     () => eligibleLibrary.map((item) => String(item.tweet_id)),
