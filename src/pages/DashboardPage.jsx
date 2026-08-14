@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 
+import { BookmarkGridCard } from '../components/BookmarkGridCard.jsx';
 import { DefaultPlaybackModeSettings } from '../components/DefaultPlaybackModeSettings.jsx';
 import { GridColumnToggle } from '../components/GridColumnToggle.jsx';
+import { PrivacyEyeButton } from '../components/PrivacyEyeButton.jsx';
 import { useDb } from '../context/DbContext.jsx';
 import { usePlayability } from '../context/PlayabilityContext.jsx';
 import { useGridColumns } from '../hooks/useGridColumns.js';
@@ -11,7 +13,6 @@ import {
   formatDuration,
   getDurationMs,
 } from '../lib/libraryFilters.js';
-import { getBookmarkDisplayTitle, getBookmarkThumbnailUrl } from '../lib/playback.js';
 import { gridColumnsClass } from '../lib/gridColumns.js';
 import { isNearScrollBottom, subscribeScroll } from '../lib/pageScroll.js';
 
@@ -27,12 +28,14 @@ export function DashboardPage() {
     hasMoreToProbe,
     hasCachedResults,
     runCheck,
+    checkPlayability,
     requestMorePlayables,
     shuffleDeck,
     eligibleCount,
     PLAYABILITY_BATCH: batch,
   } = usePlayability();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [checkingId, setCheckingId] = useState(null);
   const extendRequestedRef = useRef(false);
   const [gridColumns, setGridColumns] = useGridColumns();
 
@@ -47,6 +50,17 @@ export function DashboardPage() {
 
   const showQueue = items.length >= minDisplay || (!busy && items.length > 0);
   const showEarlyChecking = busy && items.length < minDisplay;
+
+  const handleCheckPlayability = async (item) => {
+    const tweetId = item?.tweet_id;
+    if (!tweetId) return;
+    setCheckingId(tweetId);
+    try {
+      await checkPlayability(item);
+    } finally {
+      setCheckingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!capPaused) {
@@ -89,6 +103,7 @@ export function DashboardPage() {
           {fileName ? <span className="db-hint-inline"> · {fileName}</span> : null}
         </p>
         <div className="library-hero-actions">
+          <PrivacyEyeButton className="btn btn-icon" compact />
           <GridColumnToggle columns={gridColumns} onChange={setGridColumns} compact />
           <button
             type="button"
@@ -158,34 +173,22 @@ export function DashboardPage() {
       {showQueue ? (
         <ul className={`video-grid ${gridColumnsClass(gridColumns)}`}>
           {items.map((item) => {
-            const thumb = getBookmarkThumbnailUrl(item);
-            const title = getBookmarkDisplayTitle(item);
             const duration = formatDuration(getDurationMs(item));
             const sourceLabel = item.source_slug && item.source_slug !== 'x'
               ? (catalog?.sources?.find((s) => s.slug === item.source_slug)?.display_name || item.source_slug)
               : null;
             return (
               <li key={item.tweet_id}>
-                <Link
-                  className="grid-card"
+                <BookmarkGridCard
+                  item={item}
                   to={`/watch/${encodeURIComponent(item.tweet_id)}`}
-                >
-                  <div className="thumb-wrap">
-                    {thumb ? (
-                      <img className="thumb" src={thumb} alt="" loading="lazy" draggable={false} />
-                    ) : (
-                      <div className="thumb thumb-placeholder">Playable</div>
-                    )}
-                    {duration ? <span className="duration-badge">{duration}</span> : null}
-                    <span className="play-status-dot play-status-dot-ok" title="Playable" />
-                  </div>
-                  <div className="item-meta">
-                    <div className="item-title">{title}</div>
-                    <div className="item-sub">
-                      {[sourceLabel, 'Playable'].filter(Boolean).join(' · ')}
-                    </div>
-                  </div>
-                </Link>
+                  duration={duration}
+                  sourceLabel={sourceLabel}
+                  statusBadge={{ label: 'Playable', className: 'play-status-dot-ok', text: '✓' }}
+                  subtitleParts={[sourceLabel, 'Playable']}
+                  onCheckPlayability={handleCheckPlayability}
+                  checkingPlayability={checkingId === item.tweet_id}
+                />
               </li>
             );
           })}

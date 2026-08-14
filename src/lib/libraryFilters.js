@@ -33,8 +33,19 @@ function matchesSearch(bookmark, query, catalog) {
   const text = String(bookmark.text || '').toLowerCase();
   const normalized = String(bookmark.normalizedTitle || '').toLowerCase();
   const url = String(bookmark.tweet_url || '').toLowerCase();
+  const studio = String(bookmark.studio || '').toLowerCase();
+  const industry = String(bookmark.cinemaIndustry || '').toLowerCase();
+  const decade = String(bookmark.decade || '').toLowerCase();
 
-  if (title.includes(q) || text.includes(q) || normalized.includes(q) || url.includes(q)) {
+  if (
+    title.includes(q)
+    || text.includes(q)
+    || normalized.includes(q)
+    || url.includes(q)
+    || studio.includes(q)
+    || industry.includes(q)
+    || decade.includes(q)
+  ) {
     return true;
   }
 
@@ -48,6 +59,18 @@ function matchesSearch(bookmark, query, catalog) {
   for (const tagId of bookmark.tagIds ?? []) {
     const tag = catalog.tags.find((t) => t.id === tagId);
     if (tag && String(tag.name).toLowerCase().includes(q)) return true;
+  }
+
+  for (const genre of bookmark.genres ?? []) {
+    if (String(genre).toLowerCase().includes(q)) return true;
+  }
+
+  for (const cast of bookmark.casts ?? []) {
+    if (String(cast).toLowerCase().includes(q)) return true;
+  }
+
+  for (const mood of bookmark.moods ?? []) {
+    if (String(mood).toLowerCase().includes(q)) return true;
   }
 
   return false;

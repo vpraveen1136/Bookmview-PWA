@@ -265,6 +265,17 @@ export function PlayabilityProvider({ children }) {
     queueRef.current.extendPlayableCap(PLAYABILITY_BATCH.EXTEND);
   }, []);
 
+  const checkPlayability = useCallback(async (bookmarkOrTweetId) => {
+    const tweetId = typeof bookmarkOrTweetId === 'string'
+      ? bookmarkOrTweetId
+      : bookmarkOrTweetId?.tweet_id;
+    const bookmark = typeof bookmarkOrTweetId === 'object' && bookmarkOrTweetId
+      ? bookmarkOrTweetId
+      : library.find((item) => String(item.tweet_id) === String(tweetId));
+    if (!bookmark) return null;
+    return queueRef.current.checkBookmark(bookmark);
+  }, [library]);
+
   const value = useMemo(
     () => ({
       snapshot,
@@ -283,6 +294,7 @@ export function PlayabilityProvider({ children }) {
       hasMoreToProbe: Boolean(snapshot.hasMoreToProbe),
       hasCachedResults,
       runCheck,
+      checkPlayability,
       requestMorePlayables,
       shuffleDeck,
       markSeen,
@@ -304,6 +316,7 @@ export function PlayabilityProvider({ children }) {
       playableBookmarks,
       playableIds,
       requestMorePlayables,
+      checkPlayability,
       runCheck,
       shuffleDeck,
       seenIds,

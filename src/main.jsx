@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { registerSW } from 'virtual:pwa-register';
 
 import { DbProvider } from './context/DbContext.jsx';
+import { PrivacyProvider } from './context/PrivacyContext.jsx';
 import { App } from './App.jsx';
 import './index.css';
 
@@ -16,7 +17,9 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter basename={routerBasename}>
       <DbProvider>
-        <App />
+        <PrivacyProvider>
+          <App />
+        </PrivacyProvider>
       </DbProvider>
     </BrowserRouter>
   </StrictMode>,

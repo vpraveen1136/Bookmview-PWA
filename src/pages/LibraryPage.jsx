@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 
+import { BookmarkGridCard } from '../components/BookmarkGridCard.jsx';
 import { FilterSheet, LibraryFilterPanel } from '../components/LibraryFilterSheet.jsx';
 import { GridColumnToggle } from '../components/GridColumnToggle.jsx';
+import { PrivacyEyeButton } from '../components/PrivacyEyeButton.jsx';
 import { useDb } from '../context/DbContext.jsx';
 import { usePlayability } from '../context/PlayabilityContext.jsx';
+import { usePrivacy } from '../context/PrivacyContext.jsx';
 import { useGridColumns } from '../hooks/useGridColumns.js';
 import {
   FilterChips,
@@ -36,16 +39,17 @@ function statusMeta(status, PLAYABILITY) {
 
 export function LibraryPage() {
   const { library, catalog, isReady, fileName, hydrating } = useDb();
-  const { getStatus, PLAYABILITY, progress, busy } = usePlayability();
+  const { getStatus, checkPlayability, PLAYABILITY, progress, busy } = usePlayability();
+  const { contentHidden } = usePrivacy();
   const [searchParams] = useSearchParams();
   const libraryQuery = searchParams.toString();
   const { filters, patchFilters, setSection, clearFilters, activeCount } = useLibraryFilters();
   const [filterOpen, setFilterOpen] = useState(false);
   const [gridColumns, setGridColumns] = useGridColumns();
+  const [checkingId, setCheckingId] = useState(null);
 
   const filtered = useMemo(() => {
     if (!catalog) return [];
-    // Library shows ALL matching videos — do not filter by playability.
     const matched = applyLibraryFilters(library, { ...filters, manifestHealth: 'all' }, catalog, {});
     return sortLibraryItems(matched, filters.sort, filters.section);
   }, [catalog, filters, library]);
@@ -54,6 +58,17 @@ export function LibraryPage() {
     () => listContinueWatching(library, { limit: 8 }),
     [library],
   );
+
+  const handleCheckPlayability = async (item) => {
+    const tweetId = item?.tweet_id;
+    if (!tweetId) return;
+    setCheckingId(tweetId);
+    try {
+      await checkPlayability(item);
+    } finally {
+      setCheckingId(null);
+    }
+  };
 
   if (hydrating) {
     return (
@@ -80,6 +95,7 @@ export function LibraryPage() {
           ) : null}
         </p>
         <div className="library-hero-actions">
+          <PrivacyEyeButton className="btn btn-icon" compact />
           <GridColumnToggle columns={gridColumns} onChange={setGridColumns} compact />
         </div>
       </header>
@@ -97,12 +113,16 @@ export function LibraryPage() {
                     search: libraryQuery,
                   }}
                 >
-                  {getBookmarkThumbnailUrl(item) ? (
+                  {contentHidden ? (
+                    <div className="continue-card-placeholder privacy-placeholder" aria-hidden="true" />
+                  ) : getBookmarkThumbnailUrl(item) ? (
                     <img src={getBookmarkThumbnailUrl(item)} alt="" loading="lazy" />
                   ) : (
                     <div className="continue-card-placeholder" />
                   )}
-                  <span className="continue-card-title">{getBookmarkDisplayTitle(item)}</span>
+                  <span className={`continue-card-title ${contentHidden ? 'privacy-hidden-text' : ''}`}>
+                    {contentHidden ? '···' : getBookmarkDisplayTitle(item)}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -116,7 +136,7 @@ export function LibraryPage() {
         <input
           className="search-input toolbar-search"
           type="search"
-          placeholder="Search titles, tags, authors…"
+          placeholder="Search titles, authors, genre, cast, studio…"
           value={filters.search}
           onChange={(event) => patchFilters({ search: event.target.value })}
           autoComplete="off"
@@ -152,8 +172,6 @@ export function LibraryPage() {
       ) : (
         <ul className={`video-grid ${gridColumnsClass(gridColumns)}`}>
           {filtered.map((item) => {
-            const thumb = getBookmarkThumbnailUrl(item);
-            const title = getBookmarkDisplayTitle(item);
             const duration = formatDuration(getDurationMs(item));
             const sourceLabel = item.source_slug && item.source_slug !== 'x'
               ? (catalog?.sources?.find((s) => s.slug === item.source_slug)?.display_name || item.source_slug)
@@ -162,38 +180,19 @@ export function LibraryPage() {
             const badge = statusMeta(status, PLAYABILITY);
             return (
               <li key={item.tweet_id}>
-                <Link
-                  className="grid-card"
+                <BookmarkGridCard
+                  item={item}
                   to={{
                     pathname: `/watch/${encodeURIComponent(item.tweet_id)}`,
                     search: libraryQuery,
                   }}
-                >
-                  <div className="thumb-wrap">
-                    {thumb ? (
-                      <img className="thumb" src={thumb} alt="" loading="lazy" draggable={false} />
-                    ) : (
-                      <div className="thumb thumb-placeholder">
-                        {badge.label}
-                      </div>
-                    )}
-                    {duration ? <span className="duration-badge">{duration}</span> : null}
-                    {item.is_favorite ? <span className="fav-badge" aria-label="Favorite">★</span> : null}
-                    <span
-                      className={`play-status-dot ${badge.className}`}
-                      title={badge.label}
-                      aria-label={badge.label}
-                    >
-                      {badge.text}
-                    </span>
-                  </div>
-                  <div className="item-meta">
-                    <div className="item-title">{title}</div>
-                    <div className="item-sub">
-                      {[sourceLabel, badge.label, item.is_read ? 'Watched' : null].filter(Boolean).join(' · ') || 'Video'}
-                    </div>
-                  </div>
-                </Link>
+                  duration={duration}
+                  sourceLabel={sourceLabel}
+                  statusBadge={badge}
+                  subtitleParts={[sourceLabel, badge.label, item.is_read ? 'Watched' : null]}
+                  onCheckPlayability={handleCheckPlayability}
+                  checkingPlayability={checkingId === item.tweet_id || status === PLAYABILITY.CHECKING}
+                />
               </li>
             );
           })}

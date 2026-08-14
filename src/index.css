@@ -2081,3 +2081,51 @@ html.app-uses-window-scroll .app-shell-body {
   backdrop-filter: blur(6px);
   pointer-events: none;
 }
+
+.privacy-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  background: linear-gradient(145deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 2%));
+}
+
+.privacy-hidden-text {
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.privacy-eye-label {
+  margin-left: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.sheet-panel-compact {
+  max-height: min(42dvh, 360px);
+}
+
+.sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-top: 0.25rem;
+}
+
+.sheet-action-btn {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.sheet-action-btn:disabled {
+  opacity: 0.55;
+}

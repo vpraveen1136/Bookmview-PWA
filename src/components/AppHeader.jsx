@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 
+import { PrivacyEyeButton } from './PrivacyEyeButton.jsx';
 import { usePlayability } from '../context/PlayabilityContext.jsx';
 import { useDb } from '../context/DbContext.jsx';
 
@@ -20,6 +21,7 @@ export function AppHeader() {
   return (
     <header className="top-bar">
       <div className="top-bar-actions">
+        <PrivacyEyeButton compact />
         <button type="button" className="btn" onClick={onChangeDb}>
           Change DB
         </button>

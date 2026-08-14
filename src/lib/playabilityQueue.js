@@ -401,6 +401,50 @@ export function createPlayabilityQueue({
     resumeProbing();
   }
 
+  async function checkBookmark(bookmark) {
+    const id = String(bookmark?.tweet_id || '').trim();
+    if (!id) return { status: PLAYABILITY.UNKNOWN };
+
+    if (!bookmarksById.has(id)) {
+      bookmarksById.set(id, bookmark);
+      if (!orderedIds.includes(id)) orderedIds.push(id);
+    }
+
+    const prior = getStatus(id);
+    if (prior === PLAYABILITY.CHECKING) return { status: PLAYABILITY.CHECKING };
+
+    statusById.set(id, { status: PLAYABILITY.CHECKING });
+    emit();
+
+    const controller = new AbortController();
+    try {
+      if (!bookmarkHasProbeableMedia(bookmark)) {
+        statusById.set(id, { status: PLAYABILITY.NON_PLAYABLE });
+        if (prior === PLAYABILITY.UNKNOWN || prior === PLAYABILITY.CHECKING) {
+          checkedCount += 1;
+        }
+        emit();
+        return { status: PLAYABILITY.NON_PLAYABLE };
+      }
+
+      const result = await probe(bookmark, controller.signal);
+      const nextStatus = result === 'playable'
+        ? PLAYABILITY.PLAYABLE
+        : (result === 'network_error' ? PLAYABILITY.UNKNOWN : PLAYABILITY.NON_PLAYABLE);
+
+      statusById.set(id, { status: nextStatus });
+      if (prior === PLAYABILITY.UNKNOWN || prior === PLAYABILITY.CHECKING) {
+        checkedCount += 1;
+      }
+      emit();
+      return { status: nextStatus };
+    } catch {
+      statusById.set(id, { status: PLAYABILITY.UNKNOWN });
+      emit();
+      return { status: PLAYABILITY.UNKNOWN };
+    }
+  }
+
   function getBookmark(tweetId) {
     return bookmarksById.get(String(tweetId || '')) || null;
   }
@@ -423,6 +467,7 @@ export function createPlayabilityQueue({
     setSeenIds,
     markExpired,
     extendPlayableCap,
+    checkBookmark,
     getSnapshot,
     getStatus,
     getBookmark,
