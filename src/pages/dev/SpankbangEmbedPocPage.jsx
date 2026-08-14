@@ -30,8 +30,7 @@ export function SpankbangEmbedPocPage() {
           scrolling="no"
           width="100%"
           height="100%"
-          allow="fullscreen; autoplay"
-          allowFullScreen
+          allow="autoplay"
         />
       </div>
     </div>
