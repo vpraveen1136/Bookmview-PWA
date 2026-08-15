@@ -127,16 +127,17 @@ export function getScrollPreviewViewport() {
 
   if (typeof window !== 'undefined' && window.visualViewport) {
     const vv = window.visualViewport;
-    const top = Math.max(vv.offsetTop, chromeBottom);
-    const height = Math.max(120, vv.height - tabHeight - (top - vv.offsetTop));
+    const bandTop = Math.max(vv.offsetTop, chromeBottom);
+    const bandBottom = vv.offsetTop + vv.height - tabHeight;
+    const height = Math.max(120, bandBottom - bandTop);
     return {
-      top,
-      bottom: top + height,
+      top: bandTop,
+      bottom: bandBottom,
       left: vv.offsetLeft,
       right: vv.offsetLeft + vv.width,
       width: vv.width,
       height,
-      center: top + height / 2,
+      center: bandTop + height / 2,
     };
   }
 
@@ -177,15 +178,14 @@ export function getElementIntersectionRatioInScrollPreviewViewport(element) {
   return visibleArea / elementArea;
 }
 
-/** True when the element has no overlap with the scroll-preview viewport. */
+/** True when the element has no vertical overlap with the scroll-preview viewport. */
 export function isElementCompletelyOutsideScrollPreviewViewport(element) {
   if (!element) return true;
-  const { top, bottom, left, right } = getScrollPreviewViewport();
+  const { top, bottom } = getScrollPreviewViewport();
   const rect = element.getBoundingClientRect();
+  // Vertical feed — horizontal bounds caused false "outside" on wide tablets.
   return rect.bottom <= top + FULL_IN_VIEW_EPS
-    || rect.top >= bottom - FULL_IN_VIEW_EPS
-    || rect.right <= left + FULL_IN_VIEW_EPS
-    || rect.left >= right - FULL_IN_VIEW_EPS;
+    || rect.top >= bottom - FULL_IN_VIEW_EPS;
 }
 
 /** True when the element is entirely inside the scroll-preview viewport (above tab bar). */

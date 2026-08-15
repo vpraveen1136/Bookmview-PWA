@@ -9,9 +9,9 @@ import {
 } from 'react';
 
 import { scrollPreviewPrefetch } from '../lib/scrollPreviewPrefetch.js';
+import { logScrollPreviewState } from '../lib/scrollPreviewDebug.js';
 import { SCROLL_PREVIEW_ACTIVATION_RATIO } from '../lib/scrollPreview.js';
 import {
-  getScrollPreviewViewport,
   getScrollObservationTarget,
   isElementCompletelyOutsideScrollPreviewViewport,
   getElementIntersectionRatioInScrollPreviewViewport,
@@ -29,27 +29,46 @@ function updateEntryGeometry(meta) {
   meta.overlaps = !meta.completelyOutside;
 }
 
-function pickBestOverlappingId(entries) {
-  const { center: viewportCenter } = getScrollPreviewViewport();
-  let bestId = null;
-  let bestDistance = Infinity;
+function isOverlapping(meta) {
+  return Boolean(meta?.element && !meta.completelyOutside && meta.overlaps);
+}
 
-  entries.forEach((meta, id) => {
-    if (!meta.element || meta.completelyOutside || !meta.overlaps) return;
+function isActivatable(meta) {
+  if (!isOverlapping(meta)) return false;
+  return (meta.intersectionRatio ?? 0) >= SCROLL_PREVIEW_ACTIVATION_RATIO;
+}
 
-    const ratio = meta.intersectionRatio ?? 0;
-    if (ratio < SCROLL_PREVIEW_ACTIVATION_RATIO) return;
+/**
+ * Pick the next active card by playable queue order — not viewport centre.
+ * After handoff, any overlap counts; initial pick uses the ~8% entry threshold.
+ */
+function pickNextActiveId(entries, exitedActiveId = null) {
+  const orderIds = scrollPreviewPrefetch.getOrderIds();
+  if (!orderIds.length) return null;
 
-    const rect = meta.element.getBoundingClientRect();
-    const cardCenter = rect.top + rect.height / 2;
-    const distance = Math.abs(cardCenter - viewportCenter);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestId = id;
+  const exitedIdx = exitedActiveId ? orderIds.indexOf(exitedActiveId) : -1;
+
+  if (exitedIdx >= 0) {
+    for (let i = exitedIdx + 1; i < orderIds.length; i += 1) {
+      const meta = entries.get(orderIds[i]);
+      if (isOverlapping(meta)) return orderIds[i];
     }
-  });
+    for (let i = exitedIdx - 1; i >= 0; i -= 1) {
+      const meta = entries.get(orderIds[i]);
+      if (isOverlapping(meta)) return orderIds[i];
+    }
+    return null;
+  }
 
-  return bestId;
+  for (const id of orderIds) {
+    if (isActivatable(entries.get(id))) return id;
+  }
+
+  for (const id of orderIds) {
+    if (isOverlapping(entries.get(id))) return id;
+  }
+
+  return null;
 }
 
 export function ScrollPreviewProvider({ children, enabled = true }) {
@@ -66,10 +85,9 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
     });
   }, []);
 
-  const setActiveId = useCallback((nextId) => {
+  const applyActiveId = useCallback((nextId) => {
     const id = nextId ? String(nextId) : null;
     if (activeIdRef.current === id) return;
-
     activeIdRef.current = id;
     if (id) scrollPreviewPrefetch.setActiveId(id);
     notifyAll();
@@ -84,18 +102,40 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
     if (currentActive) {
       const activeMeta = entriesRef.current.get(currentActive);
       if (!activeMeta?.element || activeMeta.completelyOutside) {
-        setActiveId(null);
-      } else {
-        // Retain ownership while any part of the card remains in the viewport.
+        const exitedId = currentActive;
+        activeIdRef.current = null;
+        const nextId = pickNextActiveId(entriesRef.current, exitedId);
+        if (nextId) {
+          activeIdRef.current = nextId;
+          scrollPreviewPrefetch.setActiveId(nextId);
+        }
+        notifyAll();
+        logScrollPreviewState({
+          activeId: activeIdRef.current,
+          entries: entriesRef.current,
+          exitedId,
+          pickedId: nextId,
+        });
         return;
       }
+
+      logScrollPreviewState({
+        activeId: currentActive,
+        entries: entriesRef.current,
+      });
+      return;
     }
 
-    const bestId = pickBestOverlappingId(entriesRef.current);
-    if (bestId) {
-      setActiveId(bestId);
+    const nextId = pickNextActiveId(entriesRef.current, null);
+    if (nextId) {
+      applyActiveId(nextId);
     }
-  }, [enabled, setActiveId]);
+    logScrollPreviewState({
+      activeId: activeIdRef.current,
+      entries: entriesRef.current,
+      pickedId: nextId,
+    });
+  }, [enabled, applyActiveId, notifyAll]);
 
   const scheduleReconcile = useCallback(() => {
     if (rafRef.current) return;
@@ -121,6 +161,7 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
           const meta = entriesRef.current.get(id) || { element: entry.target };
           meta.element = entry.target;
           meta.ioRatio = entry.intersectionRatio;
+          meta.isIntersecting = entry.isIntersecting;
           entriesRef.current.set(id, meta);
         }
         scheduleReconcile();
@@ -184,10 +225,17 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
 
     entriesRef.current.delete(id);
     if (activeIdRef.current === id) {
-      setActiveId(null);
+      const exitedId = id;
+      activeIdRef.current = null;
+      const nextId = pickNextActiveId(entriesRef.current, exitedId);
+      if (nextId) {
+        activeIdRef.current = nextId;
+        scrollPreviewPrefetch.setActiveId(nextId);
+      }
+      notifyAll();
     }
     scheduleReconcile();
-  }, [scheduleReconcile, setActiveId]);
+  }, [scheduleReconcile, notifyAll]);
 
   const subscribe = useCallback((id, listener) => {
     listenersRef.current.set(id, listener);
@@ -226,7 +274,7 @@ export function useScrollPreviewRegistration(id) {
   return setRef;
 }
 
-/** True only for the single active preview card (plays until completely outside or replaced). */
+/** True only for the single active preview card (plays until completely outside). */
 export function useScrollPreviewActive(id) {
   const ctx = useContext(ScrollPreviewContext);
   const [active, setActive] = useState(false);
