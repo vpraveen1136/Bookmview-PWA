@@ -85,19 +85,13 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
       const activeMeta = entriesRef.current.get(currentActive);
       if (!activeMeta?.element || activeMeta.completelyOutside) {
         setActiveId(null);
+      } else {
+        // Retain ownership while any part of the card remains in the viewport.
+        return;
       }
     }
 
     const bestId = pickBestOverlappingId(entriesRef.current);
-    const activeNow = activeIdRef.current;
-
-    if (activeNow) {
-      if (bestId && bestId !== activeNow) {
-        setActiveId(bestId);
-      }
-      return;
-    }
-
     if (bestId) {
       setActiveId(bestId);
     }
