@@ -156,6 +156,38 @@ export function getScrollPreviewViewport() {
 
 const FULL_IN_VIEW_EPS = 2;
 
+/** Fraction of element area visible inside the scroll-preview viewport. */
+export function getElementIntersectionRatioInScrollPreviewViewport(element) {
+  if (!element) return 0;
+  const { top, bottom, left, right } = getScrollPreviewViewport();
+  const rect = element.getBoundingClientRect();
+  if (rect.width < 8 || rect.height < 8) return 0;
+
+  const visibleTop = Math.max(rect.top, top);
+  const visibleBottom = Math.min(rect.bottom, bottom);
+  const visibleLeft = Math.max(rect.left, left);
+  const visibleRight = Math.min(rect.right, right);
+  const visibleWidth = visibleRight - visibleLeft;
+  const visibleHeight = visibleBottom - visibleTop;
+  if (visibleWidth <= 0 || visibleHeight <= 0) return 0;
+
+  const visibleArea = visibleWidth * visibleHeight;
+  const elementArea = rect.width * rect.height;
+  if (elementArea <= 0) return 0;
+  return visibleArea / elementArea;
+}
+
+/** True when the element has no overlap with the scroll-preview viewport. */
+export function isElementCompletelyOutsideScrollPreviewViewport(element) {
+  if (!element) return true;
+  const { top, bottom, left, right } = getScrollPreviewViewport();
+  const rect = element.getBoundingClientRect();
+  return rect.bottom <= top + FULL_IN_VIEW_EPS
+    || rect.top >= bottom - FULL_IN_VIEW_EPS
+    || rect.right <= left + FULL_IN_VIEW_EPS
+    || rect.left >= right - FULL_IN_VIEW_EPS;
+}
+
 /** True when the element is entirely inside the scroll-preview viewport (above tab bar). */
 export function isElementFullyInScrollPreviewViewport(element) {
   if (!element) return false;

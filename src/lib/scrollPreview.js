@@ -9,6 +9,8 @@ export const PREVIEW_CLIP_SECONDS = 10;
 export const SCROLL_PREVIEW_PROXY_TIMEOUT_MS = 2500;
 export const SCROLL_PREVIEW_PREFETCH_TIMEOUT_MS = 12000;
 export const SCROLL_PREVIEW_PREFETCH_MIN_BUFFER_SEC = 4;
+export const SCROLL_PREVIEW_PREFETCH_AHEAD = 5;
+export const SCROLL_PREVIEW_ACTIVATION_RATIO = 0.08;
 
 export async function ensureProxyForPreviewUrl(url) {
   if (!isMobileMediaProxyUrl(url)) return true;

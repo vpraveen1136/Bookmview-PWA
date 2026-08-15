@@ -5,6 +5,7 @@ import {
   ensureProxyForPreviewUrl,
   getBookmarkScrollPreviewSource,
   pickClipWindow,
+  SCROLL_PREVIEW_PREFETCH_AHEAD,
   SCROLL_PREVIEW_PREFETCH_MIN_BUFFER_SEC,
   SCROLL_PREVIEW_PREFETCH_TIMEOUT_MS,
 } from './scrollPreview.js';
@@ -114,6 +115,8 @@ function waitForClipBuffered(video, clipStart, segmentEnd, timeoutMs) {
 class ScrollPreviewPrefetch {
   constructor() {
     this.bookmarksById = new Map();
+    this.orderIds = [];
+    this.activeIndex = -1;
     this.queue = [];
     this.ready = new Map();
     this.listeners = new Map();
@@ -127,11 +130,14 @@ class ScrollPreviewPrefetch {
   clear() {
     this.workerToken += 1;
     this.queue = [];
+    this.orderIds = [];
+    this.activeIndex = -1;
     this.bookmarksById.clear();
     this.ready.clear();
     this.teardownMedia();
   }
 
+  /** Store playable queue order — does not prefetch the full list. */
   setQueue(bookmarks = []) {
     const ids = [];
     const nextBookmarks = new Map();
@@ -143,27 +149,79 @@ class ScrollPreviewPrefetch {
       nextBookmarks.set(id, bookmark);
     }
 
+    this.orderIds = ids;
     this.bookmarksById = nextBookmarks;
 
     for (const id of [...this.ready.keys()]) {
       if (!nextBookmarks.has(id)) this.ready.delete(id);
     }
 
-    this.queue = ids.filter((id) => !this.ready.has(id));
+    this.queue = [];
+    if (this.activeIndex >= 0) {
+      this.rebuildPrefetchWindow();
+    }
+  }
+
+  getOrderIds() {
+    return this.orderIds;
+  }
+
+  /** Slide the 5-item look-ahead window to the active queue position. */
+  setActiveId(tweetId) {
+    const id = String(tweetId || '').trim();
+    if (!id) return;
+
+    const idx = this.orderIds.indexOf(id);
+    if (idx < 0) return;
+
+    this.activeIndex = idx;
+    this.releaseOutsideWindow();
+    this.rebuildPrefetchWindow();
+  }
+
+  releaseOutsideWindow() {
+    if (this.activeIndex < 0) return;
+
+    const windowStart = this.activeIndex;
+    const windowEnd = Math.min(
+      this.activeIndex + SCROLL_PREVIEW_PREFETCH_AHEAD,
+      this.orderIds.length - 1,
+    );
+    const keepIds = new Set(this.orderIds.slice(windowStart, windowEnd + 1));
+
+    for (const readyId of [...this.ready.keys()]) {
+      if (!keepIds.has(readyId)) {
+        this.ready.delete(readyId);
+      }
+    }
+  }
+
+  rebuildPrefetchWindow() {
+    if (this.activeIndex < 0 || !this.orderIds.length) {
+      this.queue = [];
+      return;
+    }
+
+    const windowEnd = Math.min(
+      this.activeIndex + SCROLL_PREVIEW_PREFETCH_AHEAD,
+      this.orderIds.length - 1,
+    );
+
+    const toPrefetch = [];
+    for (let i = this.activeIndex; i <= windowEnd; i += 1) {
+      const id = this.orderIds[i];
+      if (!this.ready.has(id)) toPrefetch.push(id);
+    }
+
+    this.queue = toPrefetch;
+    this.workerToken += 1;
+    this.running = false;
     this.kick();
   }
 
+  /** @deprecated use setActiveId */
   prioritize(tweetId) {
-    const id = String(tweetId || '').trim();
-    if (!id || this.ready.has(id)) return;
-
-    const idx = this.queue.indexOf(id);
-    if (idx > 0) {
-      this.queue.splice(idx, 1);
-      this.queue.unshift(id);
-    } else if (idx === -1 && this.bookmarksById.has(id)) {
-      this.queue.unshift(id);
-    }
+    this.setActiveId(tweetId);
   }
 
   getClip(tweetId) {
@@ -239,7 +297,6 @@ class ScrollPreviewPrefetch {
       return;
     }
     this.running = true;
-    this.workerToken += 1;
     const token = this.workerToken;
     this.runWorker(token);
   }
@@ -252,13 +309,12 @@ class ScrollPreviewPrefetch {
       }
 
       const id = this.queue.shift();
+      if (!this.isInPrefetchWindow(id)) continue;
+
       const bookmark = this.bookmarksById.get(id);
       if (!bookmark || this.ready.has(id)) continue;
 
-      const ok = await this.prefetchOne(id, bookmark, token);
-      if (!ok && token === this.workerToken) {
-        // Skip failed items; continue queue.
-      }
+      await this.prefetchOne(id, bookmark, token);
     }
 
     if (token === this.workerToken) {
@@ -267,12 +323,21 @@ class ScrollPreviewPrefetch {
     }
   }
 
+  isInPrefetchWindow(id) {
+    if (this.activeIndex < 0) return false;
+    const idx = this.orderIds.indexOf(id);
+    if (idx < 0) return false;
+    return idx >= this.activeIndex
+      && idx <= this.activeIndex + SCROLL_PREVIEW_PREFETCH_AHEAD;
+  }
+
   async prefetchOne(id, bookmark, token) {
     const source = getBookmarkScrollPreviewSource(bookmark);
     if (!source?.url) return false;
 
     const proxyReady = await ensureProxyForPreviewUrl(source.url);
     if (!proxyReady || token !== this.workerToken) return false;
+    if (!this.isInPrefetchWindow(id)) return false;
 
     this.teardownMedia();
     const video = this.ensureWorkerVideo();
@@ -290,6 +355,8 @@ class ScrollPreviewPrefetch {
         if (token !== this.workerToken) return false;
       }
 
+      if (!this.isInPrefetchWindow(id)) return false;
+
       const buffered = await waitForClipBuffered(
         video,
         clipStart,
@@ -297,7 +364,7 @@ class ScrollPreviewPrefetch {
         SCROLL_PREVIEW_PREFETCH_TIMEOUT_MS,
       );
 
-      if (token !== this.workerToken) return false;
+      if (token !== this.workerToken || !this.isInPrefetchWindow(id)) return false;
 
       this.notifyReady(id, {
         ready: true,
