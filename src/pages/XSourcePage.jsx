@@ -66,14 +66,16 @@ export function XSourcePage() {
 
   const showQueue = items.length >= minDisplay || (!busy && items.length > 0);
   const showEarlyChecking = busy && xDiscovery.length < minDisplay;
+  const oneColumnFeed = gridColumns === 1;
+  const scrollPreviewActive = showQueue && items.length > 0 && oneColumnFeed;
 
   useEffect(() => {
-    if (!showQueue || items.length === 0) {
+    if (!scrollPreviewActive) {
       scrollPreviewPrefetch.clear();
       return;
     }
     scrollPreviewPrefetch.setQueue(items);
-  }, [items, showQueue]);
+  }, [items, scrollPreviewActive]);
 
   const handleCheckPlayability = async (item) => {
     const tweetId = item?.tweet_id;
@@ -111,7 +113,7 @@ export function XSourcePage() {
   const showRunCheckHint = !busy && xDiscovery.length === 0 && !hasCachedResults && eligibleCount > 0 && !hasMoreToProbe;
 
   return (
-    <ScrollPreviewProvider enabled={showQueue && items.length > 0}>
+    <ScrollPreviewProvider enabled={scrollPreviewActive}>
       <div className="page source-page">
       <SourceAppChrome
         search={search}
@@ -193,7 +195,7 @@ export function XSourcePage() {
                     subtitleParts={['Playable']}
                     onCheckPlayability={handleCheckPlayability}
                     checkingPlayability={checkingId === item.tweet_id}
-                    scrollPreviewEnabled
+                    scrollPreviewEnabled={oneColumnFeed}
                   />
                 </li>
               );

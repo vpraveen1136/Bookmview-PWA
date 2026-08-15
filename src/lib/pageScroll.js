@@ -155,6 +155,34 @@ export function getScrollPreviewViewport() {
   };
 }
 
+/** Invisible middle 50% of the scroll-preview viewport (top/bottom 25% non-focus). */
+export function getScrollPreviewFocusBand() {
+  const { top, bottom, height } = getScrollPreviewViewport();
+  const bandTop = top + height * 0.25;
+  const bandBottom = top + height * 0.75;
+  return {
+    top: bandTop,
+    bottom: bandBottom,
+    height: bandBottom - bandTop,
+  };
+}
+
+/** Vertical centre of the video frame element (thumb-wrap). */
+export function getVideoVerticalCenterY(element) {
+  if (!element) return null;
+  const rect = element.getBoundingClientRect();
+  if (rect.height < 4) return null;
+  return rect.top + rect.height / 2;
+}
+
+/** True when the video frame's vertical centre lies inside the 50% focus band. */
+export function isVideoCenterInFocusBand(element) {
+  const centerY = getVideoVerticalCenterY(element);
+  if (centerY == null) return false;
+  const { top, bottom } = getScrollPreviewFocusBand();
+  return centerY >= top && centerY <= bottom;
+}
+
 const FULL_IN_VIEW_EPS = 2;
 
 /** Fraction of element area visible inside the scroll-preview viewport. */

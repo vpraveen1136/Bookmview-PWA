@@ -10,72 +10,36 @@ import {
 
 import { scrollPreviewPrefetch } from '../lib/scrollPreviewPrefetch.js';
 import { logScrollPreviewState } from '../lib/scrollPreviewDebug.js';
-import { SCROLL_PREVIEW_ACTIVATION_RATIO } from '../lib/scrollPreview.js';
 import {
-  getScrollObservationTarget,
-  isElementCompletelyOutsideScrollPreviewViewport,
-  getElementIntersectionRatioInScrollPreviewViewport,
+  isVideoCenterInFocusBand,
+  readScrollOffset,
   subscribeScroll,
 } from '../lib/pageScroll.js';
 
 const ScrollPreviewContext = createContext(null);
 
-const IO_THRESHOLDS = [0, 0.05, 0.08, 0.1, 0.25, 0.5, 1];
-
 function updateEntryGeometry(meta) {
   if (!meta?.element) return;
-  meta.completelyOutside = isElementCompletelyOutsideScrollPreviewViewport(meta.element);
-  meta.intersectionRatio = getElementIntersectionRatioInScrollPreviewViewport(meta.element);
-  meta.overlaps = !meta.completelyOutside;
+  meta.inFocusBand = isVideoCenterInFocusBand(meta.element);
 }
 
-function isOverlapping(meta) {
-  return Boolean(meta?.element && !meta.completelyOutside && meta.overlaps);
-}
-
-function isActivatable(meta) {
-  if (!isOverlapping(meta)) return false;
-  return (meta.intersectionRatio ?? 0) >= SCROLL_PREVIEW_ACTIVATION_RATIO;
-}
-
-/**
- * Pick the next active card by playable queue order — not viewport centre.
- * After handoff, any overlap counts; initial pick uses the ~8% entry threshold.
- */
-function pickNextActiveId(entries, exitedActiveId = null) {
+function getQueueNeighbor(exitedId, direction) {
   const orderIds = scrollPreviewPrefetch.getOrderIds();
-  if (!orderIds.length) return null;
-
-  const exitedIdx = exitedActiveId ? orderIds.indexOf(exitedActiveId) : -1;
-
-  if (exitedIdx >= 0) {
-    for (let i = exitedIdx + 1; i < orderIds.length; i += 1) {
-      const meta = entries.get(orderIds[i]);
-      if (isOverlapping(meta)) return orderIds[i];
-    }
-    for (let i = exitedIdx - 1; i >= 0; i -= 1) {
-      const meta = entries.get(orderIds[i]);
-      if (isOverlapping(meta)) return orderIds[i];
-    }
-    return null;
+  const idx = orderIds.indexOf(exitedId);
+  if (idx < 0) return null;
+  if (direction === 'backward') {
+    return orderIds[idx - 1] ?? null;
   }
-
-  for (const id of orderIds) {
-    if (isActivatable(entries.get(id))) return id;
-  }
-
-  for (const id of orderIds) {
-    if (isOverlapping(entries.get(id))) return id;
-  }
-
-  return null;
+  return orderIds[idx + 1] ?? null;
 }
 
 export function ScrollPreviewProvider({ children, enabled = true }) {
   const entriesRef = useRef(new Map());
   const listenersRef = useRef(new Map());
   const activeIdRef = useRef(null);
-  const observerRef = useRef(null);
+  const pendingCandidateRef = useRef(null);
+  const scrollDirectionRef = useRef('forward');
+  const lastScrollTopRef = useRef(0);
   const rafRef = useRef(null);
 
   const notifyAll = useCallback(() => {
@@ -87,9 +51,16 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
 
   const applyActiveId = useCallback((nextId) => {
     const id = nextId ? String(nextId) : null;
-    if (activeIdRef.current === id) return;
+    if (!id || activeIdRef.current === id) return;
     activeIdRef.current = id;
-    if (id) scrollPreviewPrefetch.setActiveId(id);
+    pendingCandidateRef.current = null;
+    scrollPreviewPrefetch.setActiveId(id);
+    notifyAll();
+  }, [notifyAll]);
+
+  const clearActive = useCallback(() => {
+    if (!activeIdRef.current) return;
+    activeIdRef.current = null;
     notifyAll();
   }, [notifyAll]);
 
@@ -99,41 +70,84 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
     entriesRef.current.forEach((meta) => updateEntryGeometry(meta));
 
     const currentActive = activeIdRef.current;
+
     if (currentActive) {
       const activeMeta = entriesRef.current.get(currentActive);
-      if (!activeMeta?.element || activeMeta.completelyOutside) {
-        const exitedId = currentActive;
-        activeIdRef.current = null;
-        const nextId = pickNextActiveId(entriesRef.current, exitedId);
-        if (nextId) {
-          activeIdRef.current = nextId;
-          scrollPreviewPrefetch.setActiveId(nextId);
-        }
-        notifyAll();
+      const stillInBand = activeMeta?.element && activeMeta.inFocusBand;
+
+      if (stillInBand) {
         logScrollPreviewState({
-          activeId: activeIdRef.current,
+          activeId: currentActive,
+          scrollDirection: scrollDirectionRef.current,
           entries: entriesRef.current,
-          exitedId,
-          pickedId: nextId,
         });
         return;
       }
 
+      const exitedId = currentActive;
+      const neighbor = getQueueNeighbor(exitedId, scrollDirectionRef.current);
+      activeIdRef.current = null;
+      pendingCandidateRef.current = neighbor;
+      notifyAll();
+
+      if (neighbor) {
+        const neighborMeta = entriesRef.current.get(neighbor);
+        if (neighborMeta?.element && neighborMeta.inFocusBand) {
+          applyActiveId(neighbor);
+        }
+      }
+
       logScrollPreviewState({
-        activeId: currentActive,
+        activeId: activeIdRef.current,
+        pendingCandidateId: pendingCandidateRef.current,
+        scrollDirection: scrollDirectionRef.current,
         entries: entriesRef.current,
+        exitedId,
+        pickedId: activeIdRef.current,
       });
       return;
     }
 
-    const nextId = pickNextActiveId(entriesRef.current, null);
-    if (nextId) {
-      applyActiveId(nextId);
+    const pending = pendingCandidateRef.current;
+    if (pending) {
+      const pendingMeta = entriesRef.current.get(pending);
+      if (pendingMeta?.element && pendingMeta.inFocusBand) {
+        applyActiveId(pending);
+        logScrollPreviewState({
+          activeId: activeIdRef.current,
+          scrollDirection: scrollDirectionRef.current,
+          entries: entriesRef.current,
+          pickedId: pending,
+        });
+      } else {
+        logScrollPreviewState({
+          activeId: null,
+          pendingCandidateId: pending,
+          scrollDirection: scrollDirectionRef.current,
+          entries: entriesRef.current,
+        });
+      }
+      return;
     }
+
+    const orderIds = scrollPreviewPrefetch.getOrderIds();
+    let picked = null;
+    for (const id of orderIds) {
+      const meta = entriesRef.current.get(id);
+      if (meta?.element && meta.inFocusBand) {
+        picked = id;
+        break;
+      }
+    }
+    if (picked) {
+      applyActiveId(picked);
+    }
+
     logScrollPreviewState({
       activeId: activeIdRef.current,
+      scrollDirection: scrollDirectionRef.current,
       entries: entriesRef.current,
-      pickedId: nextId,
+      pickedId: picked,
     });
   }, [enabled, applyActiveId, notifyAll]);
 
@@ -145,41 +159,29 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
     });
   }, [reconcileActive]);
 
+  const onScroll = useCallback(() => {
+    const { top } = readScrollOffset();
+    if (top > lastScrollTopRef.current + 1) {
+      scrollDirectionRef.current = 'forward';
+    } else if (top < lastScrollTopRef.current - 1) {
+      scrollDirectionRef.current = 'backward';
+    }
+    lastScrollTopRef.current = top;
+    scheduleReconcile();
+  }, [scheduleReconcile]);
+
   useEffect(() => {
     if (!enabled) {
       activeIdRef.current = null;
+      pendingCandidateRef.current = null;
       listenersRef.current.forEach((listener) => listener(false));
       return undefined;
     }
 
-    const root = getScrollObservationTarget();
-    const observer = new IntersectionObserver(
-      (observed) => {
-        for (const entry of observed) {
-          const id = entry.target.dataset.scrollPreviewId;
-          if (!id) continue;
-          const meta = entriesRef.current.get(id) || { element: entry.target };
-          meta.element = entry.target;
-          meta.ioRatio = entry.intersectionRatio;
-          meta.isIntersecting = entry.isIntersecting;
-          entriesRef.current.set(id, meta);
-        }
-        scheduleReconcile();
-      },
-      {
-        root: root === document.documentElement ? null : root,
-        threshold: IO_THRESHOLDS,
-      },
-    );
-    observerRef.current = observer;
-
-    entriesRef.current.forEach((meta) => {
-      if (meta?.element) observer.observe(meta.element);
-    });
-
+    lastScrollTopRef.current = readScrollOffset().top;
     scheduleReconcile();
 
-    const unsubScroll = subscribeScroll(scheduleReconcile);
+    const unsubScroll = subscribeScroll(onScroll);
     const onViewportChange = () => scheduleReconcile();
     window.addEventListener('resize', onViewportChange, { passive: true });
 
@@ -191,8 +193,6 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
 
     return () => {
       unsubScroll();
-      observer.disconnect();
-      observerRef.current = null;
       window.removeEventListener('resize', onViewportChange);
       if (vv) {
         vv.removeEventListener('resize', onViewportChange);
@@ -203,36 +203,25 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
         rafRef.current = null;
       }
     };
-  }, [enabled, scheduleReconcile]);
+  }, [enabled, onScroll, scheduleReconcile]);
 
   const register = useCallback((id, element) => {
-    const observer = observerRef.current;
-    const prev = entriesRef.current.get(id);
-
-    if (prev?.element && observer) {
-      observer.unobserve(prev.element);
-    }
-
     if (element) {
       element.dataset.scrollPreviewId = id;
-      const meta = { element, completelyOutside: true, overlaps: false, intersectionRatio: 0 };
+      const meta = { element, inFocusBand: false };
       entriesRef.current.set(id, meta);
       updateEntryGeometry(meta);
-      if (observer) observer.observe(element);
       scheduleReconcile();
       return;
     }
 
     entriesRef.current.delete(id);
     if (activeIdRef.current === id) {
-      const exitedId = id;
       activeIdRef.current = null;
-      const nextId = pickNextActiveId(entriesRef.current, exitedId);
-      if (nextId) {
-        activeIdRef.current = nextId;
-        scrollPreviewPrefetch.setActiveId(nextId);
-      }
       notifyAll();
+    }
+    if (pendingCandidateRef.current === id) {
+      pendingCandidateRef.current = null;
     }
     scheduleReconcile();
   }, [scheduleReconcile, notifyAll]);
@@ -274,7 +263,7 @@ export function useScrollPreviewRegistration(id) {
   return setRef;
 }
 
-/** True only for the single active preview card (plays until completely outside). */
+/** True only for the single active preview (video centre inside focus band). */
 export function useScrollPreviewActive(id) {
   const ctx = useContext(ScrollPreviewContext);
   const [active, setActive] = useState(false);
