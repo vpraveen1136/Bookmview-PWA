@@ -2,8 +2,11 @@ import { getVideoExtensionFromUrl, isAllowedVideoUrl } from './playback.js';
 
 export function isAppleTouchDevice() {
   if (typeof navigator === 'undefined') return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent)
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (/iPad|iPhone|iPod/i.test(navigator.userAgent)) return true;
+  // iPadOS 13+ reports as Mac with touch points.
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+  if (navigator.userAgentData?.platform === 'macOS' && navigator.maxTouchPoints > 1) return true;
+  return false;
 }
 
 /** Progressive URLs that the current device can decode (e.g. no WebM on iOS). */

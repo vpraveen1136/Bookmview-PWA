@@ -1,15 +1,14 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 
-import { ensureMediaProxyReady } from '../lib/mediaProxyReady.js';
-import { isMobileMediaProxyUrl } from '../lib/mediaProxyUrl.js';
 import { getBookmarkThumbnailUrl } from '../lib/playback.js';
+import { scrollPreviewPrefetch } from '../lib/scrollPreviewPrefetch.js';
 import {
   durationSecondsForPreview,
+  ensureProxyForPreviewUrl,
   getBookmarkScrollPreviewSource,
-  pickRandomClipStart,
+  pickClipWindow,
   PREVIEW_CLIP_SECONDS,
-  SCROLL_PREVIEW_PROXY_TIMEOUT_MS,
 } from '../lib/scrollPreview.js';
 
 function prefersReducedMotion() {
@@ -22,9 +21,14 @@ function canPlayNativeHls(video) {
   return video.canPlayType('application/vnd.apple.mpegurl') !== '';
 }
 
-async function ensureProxyForPreview(url) {
-  if (!isMobileMediaProxyUrl(url)) return true;
-  return ensureMediaProxyReady(SCROLL_PREVIEW_PROXY_TIMEOUT_MS);
+function configureInlinePreviewVideo(video) {
+  video.muted = true;
+  video.defaultMuted = true;
+  video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.setAttribute('muted', '');
+  video.referrerPolicy = 'no-referrer';
 }
 
 function BookmarkScrollPreviewComponent({
@@ -41,10 +45,12 @@ function BookmarkScrollPreviewComponent({
   const bookmarkRef = useRef(bookmark);
   const activeRef = useRef(active);
   const loadedRef = useRef(false);
+  const loadedUrlRef = useRef('');
   const hardTeardownTimerRef = useRef(null);
   bookmarkRef.current = bookmark;
   activeRef.current = active;
 
+  const tweetId = bookmark?.tweet_id;
   const thumbnailUrl = getBookmarkThumbnailUrl(bookmark);
   const preview = getBookmarkScrollPreviewSource(bookmark);
   const canPreview = Boolean(preview) && !disabled;
@@ -65,6 +71,7 @@ function BookmarkScrollPreviewComponent({
       video.load();
     }
     loadedRef.current = false;
+    loadedUrlRef.current = '';
     setPreviewVisible(false);
   }, []);
 
@@ -84,18 +91,30 @@ function BookmarkScrollPreviewComponent({
     }, 1500);
   }, [hardTeardown]);
 
-  const seekToRandomClip = useCallback((video) => {
-    const durationSec = durationSecondsForPreview(bookmarkRef.current, video);
-    const start = pickRandomClipStart(durationSec);
-    segmentEndRef.current = durationSec
-      ? Math.min(start + PREVIEW_CLIP_SECONDS, durationSec)
-      : start + PREVIEW_CLIP_SECONDS;
+  const applyClipWindow = useCallback((video, clipStart, segmentEnd) => {
+    segmentEndRef.current = segmentEnd;
     try {
-      video.currentTime = start;
+      video.currentTime = clipStart;
     } catch {
       // Seek may fail until the stream has buffered.
     }
   }, []);
+
+  const seekToRandomClip = useCallback((video) => {
+    const durationSec = durationSecondsForPreview(bookmarkRef.current, video);
+    const { clipStart, segmentEnd } = pickClipWindow(durationSec);
+    applyClipWindow(video, clipStart, segmentEnd);
+  }, [applyClipWindow]);
+
+  const seekToPrefetchedOrRandom = useCallback((video) => {
+    const cached = tweetId ? scrollPreviewPrefetch.getClip(tweetId) : null;
+    if (cached?.ready && cached.url === preview?.url) {
+      applyClipWindow(video, cached.clipStart, cached.segmentEnd);
+      return true;
+    }
+    seekToRandomClip(video);
+    return false;
+  }, [applyClipWindow, preview?.url, seekToRandomClip, tweetId]);
 
   const startHls = useCallback((video, manifestUrl) => {
     video.referrerPolicy = 'no-referrer';
@@ -126,7 +145,7 @@ function BookmarkScrollPreviewComponent({
     const video = videoRef.current;
     if (!video || !activeRef.current) return;
 
-    seekToRandomClip(video);
+    seekToPrefetchedOrRandom(video);
     video.play()
       .then(() => {
         if (activeRef.current) setPreviewVisible(true);
@@ -135,7 +154,7 @@ function BookmarkScrollPreviewComponent({
         if (!activeRef.current) return;
         hardTeardown();
       });
-  }, [hardTeardown, seekToRandomClip]);
+  }, [hardTeardown, seekToPrefetchedOrRandom]);
 
   const startPreview = useCallback(async () => {
     if (!preview || !videoRef.current || !activeRef.current) return;
@@ -145,22 +164,25 @@ function BookmarkScrollPreviewComponent({
       hardTeardownTimerRef.current = null;
     }
 
-    const proxyReady = await ensureProxyForPreview(preview.url);
+    const proxyReady = await ensureProxyForPreviewUrl(preview.url);
     if (!proxyReady || !activeRef.current) return;
 
     const video = videoRef.current;
-    video.muted = true;
-    video.playsInline = true;
-    video.defaultMuted = true;
-    video.referrerPolicy = 'no-referrer';
+    configureInlinePreviewVideo(video);
 
-    if (loadedRef.current && (video.src || hlsRef.current)) {
+    const prefetched = tweetId ? scrollPreviewPrefetch.getClip(tweetId) : null;
+    const sameLoaded = loadedRef.current
+      && loadedUrlRef.current === preview.url
+      && (video.src || hlsRef.current);
+
+    if (sameLoaded) {
       playLoaded();
       return;
     }
 
     const seekAndPlay = () => {
       loadedRef.current = true;
+      loadedUrlRef.current = preview.url;
       playLoaded();
     };
 
@@ -186,7 +208,14 @@ function BookmarkScrollPreviewComponent({
         video.addEventListener('loadedmetadata', seekAndPlay, { once: true });
       }
     }
-  }, [preview, playLoaded, startHls, hardTeardown]);
+  }, [preview, playLoaded, startHls, hardTeardown, tweetId]);
+
+  useEffect(() => {
+    if (!canPreview || prefersReducedMotion() || !tweetId) return undefined;
+    return scrollPreviewPrefetch.subscribe(tweetId, () => {
+      if (activeRef.current && !previewVisible) startPreview();
+    });
+  }, [canPreview, tweetId, startPreview, previewVisible]);
 
   useEffect(() => {
     if (!canPreview || prefersReducedMotion()) {
@@ -208,7 +237,7 @@ function BookmarkScrollPreviewComponent({
   }, [
     active,
     canPreview,
-    bookmark?.tweet_id,
+    tweetId,
     preview?.url,
     startPreview,
     hardTeardown,
@@ -253,7 +282,10 @@ function BookmarkScrollPreviewComponent({
       )}
       {canPreview ? (
         <video
-          ref={videoRef}
+          ref={(node) => {
+            videoRef.current = node;
+            if (node) configureInlinePreviewVideo(node);
+          }}
           className={`thumb-scroll-preview-video ${previewVisible ? 'is-visible' : ''}`}
           muted
           playsInline

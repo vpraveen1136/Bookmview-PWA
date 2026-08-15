@@ -1,3 +1,5 @@
+import { ensureMediaProxyReady } from './mediaProxyReady.js';
+import { isMobileMediaProxyUrl } from './mediaProxyUrl.js';
 import { getDurationMs } from './libraryFilters.js';
 import { unwrapProxiedMediaUrl, resolveHlsPlayback } from './playback.js';
 import { getProgressiveVariants, PLAYBACK_MODES } from './playbackModes.js';
@@ -5,6 +7,21 @@ import { wrapPlaybackUrlForDevice } from './mediaProxyUrl.js';
 
 export const PREVIEW_CLIP_SECONDS = 10;
 export const SCROLL_PREVIEW_PROXY_TIMEOUT_MS = 2500;
+export const SCROLL_PREVIEW_PREFETCH_TIMEOUT_MS = 12000;
+export const SCROLL_PREVIEW_PREFETCH_MIN_BUFFER_SEC = 4;
+
+export async function ensureProxyForPreviewUrl(url) {
+  if (!isMobileMediaProxyUrl(url)) return true;
+  return ensureMediaProxyReady(SCROLL_PREVIEW_PROXY_TIMEOUT_MS);
+}
+
+export function pickClipWindow(durationSec) {
+  const start = pickRandomClipStart(durationSec);
+  const end = Number.isFinite(durationSec) && durationSec > 0
+    ? Math.min(start + PREVIEW_CLIP_SECONDS, durationSec)
+    : start + PREVIEW_CLIP_SECONDS;
+  return { clipStart: start, segmentEnd: end };
+}
 
 /**
  * Smallest progressive MP4, else HLS — mirrors desktop hover preview selection.

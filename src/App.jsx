@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { MainTabs } from './components/MainTabs.jsx';
@@ -20,7 +20,7 @@ function ReadyShell({ children }) {
   const immersive = onWatch || onSpankbangEmbedPoc;
   const showTabs = !immersive;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const html = document.documentElement;
     if (immersive) {
       html.classList.remove('app-uses-window-scroll');

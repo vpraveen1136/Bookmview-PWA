@@ -8,23 +8,27 @@ import {
   useState,
 } from 'react';
 
-import { getScrollObservationTarget, subscribeScroll } from '../lib/pageScroll.js';
+import { scrollPreviewPrefetch } from '../lib/scrollPreviewPrefetch.js';
+import { getScrollPreviewViewport, subscribeScroll } from '../lib/pageScroll.js';
 
 const ScrollPreviewContext = createContext(null);
 
-const MIN_VISIBLE_RATIO = 0.3;
+const MIN_VISIBLE_FRACTION = 0.2;
 
 function pickCenterId(entries) {
-  const viewportCenter = window.innerHeight / 2;
+  const { top: viewportTop, bottom: viewportBottom, center: viewportCenter } = getScrollPreviewViewport();
   let bestId = null;
   let bestDistance = Infinity;
 
   entries.forEach((meta, id) => {
-    const { element, ratio } = meta;
-    if (!element || ratio < MIN_VISIBLE_RATIO) return;
+    const { element } = meta;
+    if (!element) return;
 
     const rect = element.getBoundingClientRect();
-    if (rect.bottom <= 0 || rect.top >= window.innerHeight) return;
+    const visibleTop = Math.max(rect.top, viewportTop);
+    const visibleBottom = Math.min(rect.bottom, viewportBottom);
+    const visibleHeight = visibleBottom - visibleTop;
+    if (visibleHeight <= 0 || visibleHeight < rect.height * MIN_VISIBLE_FRACTION) return;
 
     const cardCenter = rect.top + rect.height / 2;
     const distance = Math.abs(cardCenter - viewportCenter);
@@ -41,7 +45,6 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
   const entriesRef = useRef(new Map());
   const activeIdRef = useRef(null);
   const listenersRef = useRef(new Map());
-  const observerRef = useRef(null);
   const rafRef = useRef(null);
 
   const notify = useCallback((id) => {
@@ -57,6 +60,7 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
     if (activeIdRef.current === bestId) return;
 
     activeIdRef.current = bestId;
+    if (bestId) scrollPreviewPrefetch.prioritize(bestId);
     notify(bestId);
   }, [enabled, notify]);
 
@@ -75,39 +79,25 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
       return undefined;
     }
 
-    const root = getScrollObservationTarget();
-    const observer = new IntersectionObserver(
-      (observed) => {
-        for (const entry of observed) {
-          const id = entry.target.dataset.scrollPreviewId;
-          if (!id) continue;
-          const prev = entriesRef.current.get(id) || { element: entry.target };
-          prev.ratio = entry.intersectionRatio;
-          prev.element = entry.target;
-          entriesRef.current.set(id, prev);
-        }
-        schedulePick();
-      },
-      {
-        root: root === document.documentElement ? null : root,
-        threshold: [0, 0.15, 0.3, 0.5, 0.75, 1],
-      },
-    );
-
-    observerRef.current = observer;
-
-    entriesRef.current.forEach((meta) => {
-      if (meta?.element) observer.observe(meta.element);
-    });
-
     schedulePick();
 
     const unsubScroll = subscribeScroll(schedulePick);
+    const onViewportChange = () => schedulePick();
+    window.addEventListener('resize', onViewportChange, { passive: true });
+
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', onViewportChange);
+      vv.addEventListener('scroll', onViewportChange);
+    }
 
     return () => {
       unsubScroll();
-      observer.disconnect();
-      observerRef.current = null;
+      window.removeEventListener('resize', onViewportChange);
+      if (vv) {
+        vv.removeEventListener('resize', onViewportChange);
+        vv.removeEventListener('scroll', onViewportChange);
+      }
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
@@ -116,17 +106,8 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
   }, [enabled, schedulePick]);
 
   const register = useCallback((id, element) => {
-    const observer = observerRef.current;
-    const prev = entriesRef.current.get(id);
-
-    if (prev?.element && observer) {
-      observer.unobserve(prev.element);
-    }
-
     if (element) {
-      element.dataset.scrollPreviewId = id;
-      entriesRef.current.set(id, { element, ratio: 0 });
-      if (observer) observer.observe(element);
+      entriesRef.current.set(id, { element });
       schedulePick();
       return;
     }

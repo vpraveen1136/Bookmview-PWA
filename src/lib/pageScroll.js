@@ -107,6 +107,35 @@ export function getScrollObservationTarget() {
   return getScrollRoot();
 }
 
+/**
+ * Visible scroll-preview band — accounts for iPad visualViewport and fixed tab bar.
+ */
+export function getScrollPreviewViewport() {
+  const tabEl = typeof document !== 'undefined'
+    ? document.querySelector('.main-tabs')
+    : null;
+  const tabHeight = tabEl ? tabEl.getBoundingClientRect().height : 0;
+
+  if (typeof window !== 'undefined' && window.visualViewport) {
+    const vv = window.visualViewport;
+    const height = Math.max(120, vv.height - tabHeight);
+    return {
+      top: vv.offsetTop,
+      bottom: vv.offsetTop + height,
+      height,
+      center: vv.offsetTop + height / 2,
+    };
+  }
+
+  const height = Math.max(120, window.innerHeight - tabHeight);
+  return {
+    top: 0,
+    bottom: height,
+    height,
+    center: height / 2,
+  };
+}
+
 export function scrollStorageKey(pathname, search = '') {
   const path = pathname.replace(/\/$/, '') || '/';
 

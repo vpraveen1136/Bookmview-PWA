@@ -12,6 +12,7 @@ import { applyLibraryFilters, formatDuration, getDurationMs } from '../lib/libra
 import { gridColumnsClass } from '../lib/gridColumns.js';
 import { isNearScrollBottom, subscribeScroll } from '../lib/pageScroll.js';
 import { PLAYABILITY_BATCH } from '../lib/playabilityQueue.js';
+import { scrollPreviewPrefetch } from '../lib/scrollPreviewPrefetch.js';
 
 function isXBookmark(bookmark) {
   const slug = String(bookmark?.source_slug || 'x').trim().toLowerCase() || 'x';
@@ -65,6 +66,14 @@ export function XSourcePage() {
 
   const showQueue = items.length >= minDisplay || (!busy && items.length > 0);
   const showEarlyChecking = busy && xDiscovery.length < minDisplay;
+
+  useEffect(() => {
+    if (!showQueue || items.length === 0) {
+      scrollPreviewPrefetch.clear();
+      return;
+    }
+    scrollPreviewPrefetch.setQueue(items);
+  }, [items, showQueue]);
 
   const handleCheckPlayability = async (item) => {
     const tweetId = item?.tweet_id;
