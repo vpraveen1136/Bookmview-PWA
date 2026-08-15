@@ -1734,7 +1734,8 @@ button.watch-sheet-link,
 }
 
 .dashboard-page .video-grid,
-.library-page .video-grid {
+.library-page .video-grid,
+.source-page .video-grid {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1871,6 +1872,38 @@ button.watch-sheet-link,
 .grid-card .thumb,
 .thumb-wrap .thumb {
   width: 100%;
+}
+
+.thumb-scroll-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.thumb-scroll-preview-img,
+.thumb-scroll-preview .thumb-placeholder {
+  transition: opacity 0.2s ease;
+}
+
+.thumb-scroll-preview-img.is-hidden,
+.thumb-scroll-preview .thumb-placeholder.is-hidden {
+  opacity: 0;
+}
+
+.thumb-scroll-preview-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.thumb-scroll-preview-video.is-visible {
+  opacity: 1;
 }
 
 .duration-badge {

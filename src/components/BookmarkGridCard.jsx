@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { usePrivacy } from '../context/PrivacyContext.jsx';
 import { useLongPress } from '../hooks/useLongPress.js';
 import { BookmarkQuickActionsSheet } from './BookmarkQuickActionsSheet.jsx';
+import { BookmarkScrollPreview } from './BookmarkScrollPreview.jsx';
 import { getBookmarkDisplayTitle, getBookmarkThumbnailUrl } from '../lib/playback.js';
 
 export function BookmarkGridCard({
@@ -15,6 +16,9 @@ export function BookmarkGridCard({
   subtitleParts = [],
   onCheckPlayability,
   checkingPlayability = false,
+  scrollPreviewEnabled = false,
+  scrollPreviewActive = false,
+  cardRef = null,
 }) {
   const { contentHidden } = usePrivacy();
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -42,9 +46,15 @@ export function BookmarkGridCard({
         onContextMenu={longPress.onContextMenu}
         onClickCapture={longPress.onClickCapture}
       >
-        <div className="thumb-wrap">
+        <div className="thumb-wrap" ref={cardRef}>
           {contentHidden ? (
             <div className="thumb thumb-placeholder privacy-placeholder" aria-hidden="true">···</div>
+          ) : scrollPreviewEnabled ? (
+            <BookmarkScrollPreview
+              bookmark={item}
+              active={scrollPreviewActive}
+              placeholder={statusBadge?.label || 'Video'}
+            />
           ) : thumb ? (
             <img className="thumb" src={thumb} alt="" loading="lazy" draggable={false} />
           ) : (

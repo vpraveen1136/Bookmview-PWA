@@ -5,6 +5,7 @@ import { BookmarkGridCard } from '../components/BookmarkGridCard.jsx';
 import { SourceAppChrome } from '../components/SourceAppChrome.jsx';
 import { useDb } from '../context/DbContext.jsx';
 import { usePlayability } from '../context/PlayabilityContext.jsx';
+import { useCenterScrollPreview } from '../hooks/useCenterScrollPreview.js';
 import { useGridColumns } from '../hooks/useGridColumns.js';
 import { useSourceSearch } from '../hooks/useSourceSearch.js';
 import { applyLibraryFilters, formatDuration, getDurationMs } from '../lib/libraryFilters.js';
@@ -54,6 +55,9 @@ export function XSourcePage() {
       {},
     );
   }, [catalog, search, xDiscovery]);
+
+  const itemIds = useMemo(() => items.map((item) => item.tweet_id).filter(Boolean), [items]);
+  const { focusedId, registerCardRef } = useCenterScrollPreview(itemIds);
 
   const minDisplay = batch?.INITIAL_DISPLAY ?? PLAYABILITY_BATCH.INITIAL_DISPLAY;
   const checkingLabel = useMemo(() => {
@@ -182,6 +186,9 @@ export function XSourcePage() {
                     subtitleParts={['Playable']}
                     onCheckPlayability={handleCheckPlayability}
                     checkingPlayability={checkingId === item.tweet_id}
+                    scrollPreviewEnabled
+                    scrollPreviewActive={focusedId === item.tweet_id}
+                    cardRef={(el) => registerCardRef(item.tweet_id, el)}
                   />
                 </li>
               );
