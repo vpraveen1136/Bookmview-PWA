@@ -4,7 +4,7 @@ import { getProgressiveVariants, PLAYBACK_MODES } from './playbackModes.js';
 import { wrapPlaybackUrlForDevice } from './mediaProxyUrl.js';
 
 export const PREVIEW_CLIP_SECONDS = 10;
-export const SCROLL_PREVIEW_ACTIVATE_MS = 200;
+export const SCROLL_PREVIEW_PROXY_TIMEOUT_MS = 2500;
 
 /**
  * Smallest progressive MP4, else HLS — mirrors desktop hover preview selection.

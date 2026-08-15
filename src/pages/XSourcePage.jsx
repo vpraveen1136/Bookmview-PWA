@@ -3,9 +3,9 @@ import { Navigate } from 'react-router-dom';
 
 import { BookmarkGridCard } from '../components/BookmarkGridCard.jsx';
 import { SourceAppChrome } from '../components/SourceAppChrome.jsx';
+import { ScrollPreviewProvider } from '../context/ScrollPreviewContext.jsx';
 import { useDb } from '../context/DbContext.jsx';
 import { usePlayability } from '../context/PlayabilityContext.jsx';
-import { useCenterScrollPreview } from '../hooks/useCenterScrollPreview.js';
 import { useGridColumns } from '../hooks/useGridColumns.js';
 import { useSourceSearch } from '../hooks/useSourceSearch.js';
 import { applyLibraryFilters, formatDuration, getDurationMs } from '../lib/libraryFilters.js';
@@ -56,9 +56,6 @@ export function XSourcePage() {
     );
   }, [catalog, search, xDiscovery]);
 
-  const itemIds = useMemo(() => items.map((item) => item.tweet_id).filter(Boolean), [items]);
-  const { focusedId, registerCardRef } = useCenterScrollPreview(itemIds);
-
   const minDisplay = batch?.INITIAL_DISPLAY ?? PLAYABILITY_BATCH.INITIAL_DISPLAY;
   const checkingLabel = useMemo(() => {
     if (networkPaused) return 'Waiting for network…';
@@ -105,7 +102,8 @@ export function XSourcePage() {
   const showRunCheckHint = !busy && xDiscovery.length === 0 && !hasCachedResults && eligibleCount > 0 && !hasMoreToProbe;
 
   return (
-    <div className="page source-page">
+    <ScrollPreviewProvider enabled={showQueue && items.length > 0}>
+      <div className="page source-page">
       <SourceAppChrome
         search={search}
         onSearchChange={setSearch}
@@ -187,8 +185,6 @@ export function XSourcePage() {
                     onCheckPlayability={handleCheckPlayability}
                     checkingPlayability={checkingId === item.tweet_id}
                     scrollPreviewEnabled
-                    scrollPreviewActive={focusedId === item.tweet_id}
-                    cardRef={(el) => registerCardRef(item.tweet_id, el)}
                   />
                 </li>
               );
@@ -201,5 +197,6 @@ export function XSourcePage() {
         ) : null}
       </SourceAppChrome>
     </div>
+    </ScrollPreviewProvider>
   );
 }

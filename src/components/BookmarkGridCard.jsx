@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { usePrivacy } from '../context/PrivacyContext.jsx';
+import { useScrollPreviewActive, useScrollPreviewRegistration } from '../context/ScrollPreviewContext.jsx';
 import { useLongPress } from '../hooks/useLongPress.js';
 import { BookmarkQuickActionsSheet } from './BookmarkQuickActionsSheet.jsx';
 import { BookmarkScrollPreview } from './BookmarkScrollPreview.jsx';
@@ -21,6 +22,12 @@ export function BookmarkGridCard({
   cardRef = null,
 }) {
   const { contentHidden } = usePrivacy();
+  const previewRegisterRef = useScrollPreviewRegistration(item.tweet_id);
+  const previewActiveFromScroll = useScrollPreviewActive(item.tweet_id);
+  const scrollPreviewIsActive = scrollPreviewEnabled
+    ? previewActiveFromScroll
+    : scrollPreviewActive;
+  const thumbMeasureRef = scrollPreviewEnabled ? previewRegisterRef : cardRef;
   const [actionsOpen, setActionsOpen] = useState(false);
   const thumb = getBookmarkThumbnailUrl(item);
   const title = getBookmarkDisplayTitle(item);
@@ -46,13 +53,13 @@ export function BookmarkGridCard({
         onContextMenu={longPress.onContextMenu}
         onClickCapture={longPress.onClickCapture}
       >
-        <div className="thumb-wrap" ref={cardRef}>
+        <div className="thumb-wrap" ref={thumbMeasureRef}>
           {contentHidden ? (
             <div className="thumb thumb-placeholder privacy-placeholder" aria-hidden="true">···</div>
           ) : scrollPreviewEnabled ? (
             <BookmarkScrollPreview
               bookmark={item}
-              active={scrollPreviewActive}
+              active={scrollPreviewIsActive}
               placeholder={statusBadge?.label || 'Video'}
             />
           ) : thumb ? (

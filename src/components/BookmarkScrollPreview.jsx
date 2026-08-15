@@ -1,14 +1,15 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 
-import { ensureProxyForPlaybackUrl } from '../lib/mediaProxyReady.js';
+import { ensureMediaProxyReady } from '../lib/mediaProxyReady.js';
+import { isMobileMediaProxyUrl } from '../lib/mediaProxyUrl.js';
 import { getBookmarkThumbnailUrl } from '../lib/playback.js';
 import {
   durationSecondsForPreview,
   getBookmarkScrollPreviewSource,
   pickRandomClipStart,
   PREVIEW_CLIP_SECONDS,
-  SCROLL_PREVIEW_ACTIVATE_MS,
+  SCROLL_PREVIEW_PROXY_TIMEOUT_MS,
 } from '../lib/scrollPreview.js';
 
 function prefersReducedMotion() {
@@ -21,6 +22,11 @@ function canPlayNativeHls(video) {
   return video.canPlayType('application/vnd.apple.mpegurl') !== '';
 }
 
+async function ensureProxyForPreview(url) {
+  if (!isMobileMediaProxyUrl(url)) return true;
+  return ensureMediaProxyReady(SCROLL_PREVIEW_PROXY_TIMEOUT_MS);
+}
+
 function BookmarkScrollPreviewComponent({
   bookmark,
   active = false,
@@ -31,19 +37,22 @@ function BookmarkScrollPreviewComponent({
   const [previewVisible, setPreviewVisible] = useState(false);
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
-  const delayRef = useRef(null);
   const segmentEndRef = useRef(PREVIEW_CLIP_SECONDS);
   const bookmarkRef = useRef(bookmark);
+  const activeRef = useRef(active);
+  const loadedRef = useRef(false);
+  const hardTeardownTimerRef = useRef(null);
   bookmarkRef.current = bookmark;
+  activeRef.current = active;
 
   const thumbnailUrl = getBookmarkThumbnailUrl(bookmark);
   const preview = getBookmarkScrollPreviewSource(bookmark);
   const canPreview = Boolean(preview) && !disabled;
 
-  const teardown = useCallback(() => {
-    if (delayRef.current) {
-      clearTimeout(delayRef.current);
-      delayRef.current = null;
+  const hardTeardown = useCallback(() => {
+    if (hardTeardownTimerRef.current) {
+      clearTimeout(hardTeardownTimerRef.current);
+      hardTeardownTimerRef.current = null;
     }
     if (hlsRef.current) {
       hlsRef.current.destroy();
@@ -55,8 +64,25 @@ function BookmarkScrollPreviewComponent({
       video.removeAttribute('src');
       video.load();
     }
+    loadedRef.current = false;
     setPreviewVisible(false);
   }, []);
+
+  const softPause = useCallback(() => {
+    const video = videoRef.current;
+    if (video) video.pause();
+    setPreviewVisible(false);
+  }, []);
+
+  const scheduleHardTeardown = useCallback(() => {
+    if (hardTeardownTimerRef.current) {
+      clearTimeout(hardTeardownTimerRef.current);
+    }
+    hardTeardownTimerRef.current = window.setTimeout(() => {
+      hardTeardownTimerRef.current = null;
+      if (!activeRef.current) hardTeardown();
+    }, 1500);
+  }, [hardTeardown]);
 
   const seekToRandomClip = useCallback((video) => {
     const durationSec = durationSecondsForPreview(bookmarkRef.current, video);
@@ -84,23 +110,43 @@ function BookmarkScrollPreviewComponent({
 
     const hls = new Hls({
       enableWorker: false,
-      maxBufferLength: 6,
-      maxMaxBufferLength: 10,
+      maxBufferLength: 4,
+      maxMaxBufferLength: 8,
     });
     hlsRef.current = hls;
     hls.loadSource(manifestUrl);
     hls.attachMedia(video);
     hls.on(Hls.Events.ERROR, (_event, data) => {
-      if (data?.fatal) teardown();
+      if (data?.fatal) hardTeardown();
     });
     return true;
-  }, [teardown]);
+  }, [hardTeardown]);
+
+  const playLoaded = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !activeRef.current) return;
+
+    seekToRandomClip(video);
+    video.play()
+      .then(() => {
+        if (activeRef.current) setPreviewVisible(true);
+      })
+      .catch(() => {
+        if (!activeRef.current) return;
+        hardTeardown();
+      });
+  }, [hardTeardown, seekToRandomClip]);
 
   const startPreview = useCallback(async () => {
-    if (!preview || !videoRef.current) return;
+    if (!preview || !videoRef.current || !activeRef.current) return;
 
-    const proxyReady = await ensureProxyForPlaybackUrl(preview.url);
-    if (!proxyReady) return;
+    if (hardTeardownTimerRef.current) {
+      clearTimeout(hardTeardownTimerRef.current);
+      hardTeardownTimerRef.current = null;
+    }
+
+    const proxyReady = await ensureProxyForPreview(preview.url);
+    if (!proxyReady || !activeRef.current) return;
 
     const video = videoRef.current;
     video.muted = true;
@@ -108,11 +154,14 @@ function BookmarkScrollPreviewComponent({
     video.defaultMuted = true;
     video.referrerPolicy = 'no-referrer';
 
+    if (loadedRef.current && (video.src || hlsRef.current)) {
+      playLoaded();
+      return;
+    }
+
     const seekAndPlay = () => {
-      seekToRandomClip(video);
-      video.play()
-        .then(() => setPreviewVisible(true))
-        .catch(() => teardown());
+      loadedRef.current = true;
+      playLoaded();
     };
 
     if (preview.type === 'mp4') {
@@ -128,7 +177,7 @@ function BookmarkScrollPreviewComponent({
 
     if (preview.type === 'hls') {
       if (!startHls(video, preview.url)) {
-        teardown();
+        hardTeardown();
         return;
       }
       if (hlsRef.current) {
@@ -137,27 +186,42 @@ function BookmarkScrollPreviewComponent({
         video.addEventListener('loadedmetadata', seekAndPlay, { once: true });
       }
     }
-  }, [preview, seekToRandomClip, startHls, teardown]);
+  }, [preview, playLoaded, startHls, hardTeardown]);
 
   useEffect(() => {
-    if (!active || !canPreview || prefersReducedMotion()) {
-      teardown();
+    if (!canPreview || prefersReducedMotion()) {
+      hardTeardown();
       return undefined;
     }
 
-    delayRef.current = window.setTimeout(() => {
-      delayRef.current = null;
+    if (active) {
       startPreview();
-    }, SCROLL_PREVIEW_ACTIVATE_MS);
+      return () => {
+        softPause();
+        scheduleHardTeardown();
+      };
+    }
 
-    return () => teardown();
-  }, [active, canPreview, bookmark?.tweet_id, preview?.url, startPreview, teardown]);
+    softPause();
+    scheduleHardTeardown();
+    return undefined;
+  }, [
+    active,
+    canPreview,
+    bookmark?.tweet_id,
+    preview?.url,
+    startPreview,
+    hardTeardown,
+    softPause,
+    scheduleHardTeardown,
+  ]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !previewVisible) return undefined;
 
     const onTimeUpdate = () => {
+      if (!activeRef.current) return;
       if (video.currentTime >= segmentEndRef.current - 0.15) {
         seekToRandomClip(video);
       }
@@ -167,7 +231,7 @@ function BookmarkScrollPreviewComponent({
     return () => video.removeEventListener('timeupdate', onTimeUpdate);
   }, [previewVisible, seekToRandomClip]);
 
-  useEffect(() => () => teardown(), [teardown]);
+  useEffect(() => () => hardTeardown(), [hardTeardown]);
 
   const showImage = thumbnailUrl && !imageFailed;
 
