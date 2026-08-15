@@ -107,33 +107,65 @@ export function getScrollObservationTarget() {
   return getScrollRoot();
 }
 
-/**
- * Visible scroll-preview band — accounts for iPad visualViewport and fixed tab bar.
- */
+/** Visible scroll-preview band — below sticky chrome, above tab bar, iPad visualViewport-aware. */
 export function getScrollPreviewViewport() {
   const tabEl = typeof document !== 'undefined'
     ? document.querySelector('.main-tabs')
     : null;
   const tabHeight = tabEl ? tabEl.getBoundingClientRect().height : 0;
 
+  let chromeBottom = 0;
+  if (typeof document !== 'undefined') {
+    const chromeEl = document.querySelector('.source-app-chrome');
+    if (chromeEl) {
+      const chromeRect = chromeEl.getBoundingClientRect();
+      if (chromeRect.top <= 2) {
+        chromeBottom = chromeRect.bottom;
+      }
+    }
+  }
+
   if (typeof window !== 'undefined' && window.visualViewport) {
     const vv = window.visualViewport;
-    const height = Math.max(120, vv.height - tabHeight);
+    const top = Math.max(vv.offsetTop, chromeBottom);
+    const height = Math.max(120, vv.height - tabHeight - (top - vv.offsetTop));
     return {
-      top: vv.offsetTop,
-      bottom: vv.offsetTop + height,
+      top,
+      bottom: top + height,
+      left: vv.offsetLeft,
+      right: vv.offsetLeft + vv.width,
+      width: vv.width,
       height,
-      center: vv.offsetTop + height / 2,
+      center: top + height / 2,
     };
   }
 
-  const height = Math.max(120, window.innerHeight - tabHeight);
+  const width = window.innerWidth;
+  const top = chromeBottom;
+  const height = Math.max(120, window.innerHeight - tabHeight - top);
   return {
-    top: 0,
-    bottom: height,
+    top,
+    bottom: top + height,
+    left: 0,
+    right: width,
+    width,
     height,
-    center: height / 2,
+    center: top + height / 2,
   };
+}
+
+const FULL_IN_VIEW_EPS = 2;
+
+/** True when the element is entirely inside the scroll-preview viewport (above tab bar). */
+export function isElementFullyInScrollPreviewViewport(element) {
+  if (!element) return false;
+  const { top, bottom, left, right } = getScrollPreviewViewport();
+  const rect = element.getBoundingClientRect();
+  if (rect.width < 8 || rect.height < 8) return false;
+  return rect.top >= top - FULL_IN_VIEW_EPS
+    && rect.bottom <= bottom + FULL_IN_VIEW_EPS
+    && rect.left >= left - FULL_IN_VIEW_EPS
+    && rect.right <= right + FULL_IN_VIEW_EPS;
 }
 
 export function scrollStorageKey(pathname, search = '') {

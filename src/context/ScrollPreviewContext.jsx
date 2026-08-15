@@ -9,80 +9,59 @@ import {
 } from 'react';
 
 import { scrollPreviewPrefetch } from '../lib/scrollPreviewPrefetch.js';
-import { getScrollPreviewViewport, subscribeScroll } from '../lib/pageScroll.js';
+import {
+  isElementFullyInScrollPreviewViewport,
+  subscribeScroll,
+} from '../lib/pageScroll.js';
 
 const ScrollPreviewContext = createContext(null);
 
-const MIN_VISIBLE_FRACTION = 0.2;
-
-function pickCenterId(entries) {
-  const { top: viewportTop, bottom: viewportBottom, center: viewportCenter } = getScrollPreviewViewport();
-  let bestId = null;
-  let bestDistance = Infinity;
-
-  entries.forEach((meta, id) => {
-    const { element } = meta;
-    if (!element) return;
-
-    const rect = element.getBoundingClientRect();
-    const visibleTop = Math.max(rect.top, viewportTop);
-    const visibleBottom = Math.min(rect.bottom, viewportBottom);
-    const visibleHeight = visibleBottom - visibleTop;
-    if (visibleHeight <= 0 || visibleHeight < rect.height * MIN_VISIBLE_FRACTION) return;
-
-    const cardCenter = rect.top + rect.height / 2;
-    const distance = Math.abs(cardCenter - viewportCenter);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestId = id;
-    }
-  });
-
-  return bestId;
-}
-
 export function ScrollPreviewProvider({ children, enabled = true }) {
   const entriesRef = useRef(new Map());
-  const activeIdRef = useRef(null);
   const listenersRef = useRef(new Map());
   const rafRef = useRef(null);
 
-  const notify = useCallback((id) => {
-    listenersRef.current.forEach((listener, listenerId) => {
-      listener(id === listenerId);
-    });
+  const notifyVisibility = useCallback((id, fullyVisible) => {
+    const listener = listenersRef.current.get(id);
+    if (listener) listener(fullyVisible);
   }, []);
 
-  const pickActive = useCallback(() => {
+  const measureAll = useCallback(() => {
     if (!enabled) return;
 
-    const bestId = pickCenterId(entriesRef.current);
-    if (activeIdRef.current === bestId) return;
+    entriesRef.current.forEach((meta, id) => {
+      const element = meta.element;
+      if (!element) return;
 
-    activeIdRef.current = bestId;
-    if (bestId) scrollPreviewPrefetch.prioritize(bestId);
-    notify(bestId);
-  }, [enabled, notify]);
+      const fullyVisible = isElementFullyInScrollPreviewViewport(element);
+      if (meta.fullyVisible === fullyVisible) return;
 
-  const schedulePick = useCallback(() => {
+      meta.fullyVisible = fullyVisible;
+      if (fullyVisible && !scrollPreviewPrefetch.getClip(id)?.ready) {
+        scrollPreviewPrefetch.prioritize(id);
+      }
+      notifyVisibility(id, fullyVisible);
+    });
+  }, [enabled, notifyVisibility]);
+
+  const scheduleMeasure = useCallback(() => {
     if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
-      pickActive();
+      measureAll();
     });
-  }, [pickActive]);
+  }, [measureAll]);
 
   useEffect(() => {
     if (!enabled) {
-      activeIdRef.current = null;
-      notify(null);
+      listenersRef.current.forEach((listener) => listener(false));
       return undefined;
     }
 
-    schedulePick();
+    scheduleMeasure();
 
-    const unsubScroll = subscribeScroll(schedulePick);
-    const onViewportChange = () => schedulePick();
+    const unsubScroll = subscribeScroll(scheduleMeasure);
+    const onViewportChange = () => scheduleMeasure();
     window.addEventListener('resize', onViewportChange, { passive: true });
 
     const vv = window.visualViewport;
@@ -103,26 +82,29 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
         rafRef.current = null;
       }
     };
-  }, [enabled, schedulePick]);
+  }, [enabled, scheduleMeasure]);
 
   const register = useCallback((id, element) => {
     if (element) {
-      entriesRef.current.set(id, { element });
-      schedulePick();
+      const fullyVisible = isElementFullyInScrollPreviewViewport(element);
+      entriesRef.current.set(id, { element, fullyVisible });
+      if (fullyVisible && !scrollPreviewPrefetch.getClip(id)?.ready) {
+        scrollPreviewPrefetch.prioritize(id);
+      }
+      notifyVisibility(id, fullyVisible);
+      scheduleMeasure();
       return;
     }
 
     entriesRef.current.delete(id);
-    if (activeIdRef.current === id) {
-      activeIdRef.current = null;
-      notify(null);
-    }
-    schedulePick();
-  }, [notify, schedulePick]);
+    notifyVisibility(id, false);
+    scheduleMeasure();
+  }, [notifyVisibility, scheduleMeasure]);
 
   const subscribe = useCallback((id, listener) => {
     listenersRef.current.set(id, listener);
-    listener(activeIdRef.current === id);
+    const meta = entriesRef.current.get(id);
+    listener(meta?.fullyVisible ?? false);
     return () => listenersRef.current.delete(id);
   }, []);
 
@@ -157,6 +139,7 @@ export function useScrollPreviewRegistration(id) {
   return setRef;
 }
 
+/** True while the bookmark thumb is fully inside the visible viewport. */
 export function useScrollPreviewActive(id) {
   const ctx = useContext(ScrollPreviewContext);
   const [active, setActive] = useState(false);

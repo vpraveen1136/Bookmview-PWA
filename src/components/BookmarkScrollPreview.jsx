@@ -41,6 +41,7 @@ function BookmarkScrollPreviewComponent({
   const [previewVisible, setPreviewVisible] = useState(false);
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
+  const segmentStartRef = useRef(0);
   const segmentEndRef = useRef(PREVIEW_CLIP_SECONDS);
   const bookmarkRef = useRef(bookmark);
   const activeRef = useRef(active);
@@ -92,11 +93,20 @@ function BookmarkScrollPreviewComponent({
   }, [hardTeardown]);
 
   const applyClipWindow = useCallback((video, clipStart, segmentEnd) => {
+    segmentStartRef.current = clipStart;
     segmentEndRef.current = segmentEnd;
     try {
       video.currentTime = clipStart;
     } catch {
       // Seek may fail until the stream has buffered.
+    }
+  }, []);
+
+  const loopClipSegment = useCallback((video) => {
+    try {
+      video.currentTime = segmentStartRef.current;
+    } catch {
+      // ignore
     }
   }, []);
 
@@ -252,13 +262,13 @@ function BookmarkScrollPreviewComponent({
     const onTimeUpdate = () => {
       if (!activeRef.current) return;
       if (video.currentTime >= segmentEndRef.current - 0.15) {
-        seekToRandomClip(video);
+        loopClipSegment(video);
       }
     };
 
     video.addEventListener('timeupdate', onTimeUpdate);
     return () => video.removeEventListener('timeupdate', onTimeUpdate);
-  }, [previewVisible, seekToRandomClip]);
+  }, [previewVisible, loopClipSegment]);
 
   useEffect(() => () => hardTeardown(), [hardTeardown]);
 
