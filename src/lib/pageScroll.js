@@ -109,14 +109,12 @@ export function getScrollObservationTarget() {
 
 export function scrollStorageKey(pathname, search = '') {
   const path = pathname.replace(/\/$/, '') || '/';
-  if (path.endsWith('/dashboard')) {
-    return `${PREFIX}:dashboard`;
+
+  if (path.endsWith('/x') || path.endsWith('/dashboard')) {
+    return `${PREFIX}:x`;
   }
-  if (path.endsWith('/library')) {
-    const query = search.startsWith('?') ? search.slice(1) : search;
-    const params = new URLSearchParams(query);
-    const section = params.get('section') || 'videos';
-    return `${PREFIX}:library:${section}`;
+  if (path.endsWith('/spankbang') || path.endsWith('/library')) {
+    return `${PREFIX}:spankbang`;
   }
   return null;
 }

@@ -1,15 +1,14 @@
 import { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
-import { AppHeader } from './components/AppHeader.jsx';
 import { MainTabs } from './components/MainTabs.jsx';
 import { TabScrollRestoration } from './components/TabScrollRestoration.jsx';
 import { PlayabilityProvider } from './context/PlayabilityContext.jsx';
 import { useDb } from './context/DbContext.jsx';
-import { DashboardPage } from './pages/DashboardPage.jsx';
-import { LibraryPage } from './pages/LibraryPage.jsx';
 import { OpenPage } from './pages/OpenPage.jsx';
+import { SpankbangSourcePage } from './pages/SpankbangSourcePage.jsx';
 import { WatchPage } from './pages/WatchPage.jsx';
+import { XSourcePage } from './pages/XSourcePage.jsx';
 import { SpankbangEmbedPocPage } from './pages/dev/SpankbangEmbedPocPage.jsx';
 
 const SPANKBANG_EMBED_POC_PATH = '/dev/spankbang-embed-poc';
@@ -21,7 +20,6 @@ function ReadyShell({ children }) {
   const immersive = onWatch || onSpankbangEmbedPoc;
   const showTabs = !immersive;
 
-  // iOS status-bar tap-to-scroll-top requires the document/window to be the scroller.
   useEffect(() => {
     const html = document.documentElement;
     if (immersive) {
@@ -35,7 +33,6 @@ function ReadyShell({ children }) {
   return (
     <div className={`app-shell ${immersive ? 'app-shell-immersive' : ''} ${showTabs ? 'app-shell-with-tabs' : ''}`}>
       <TabScrollRestoration />
-      {!immersive ? <AppHeader /> : null}
       <div className="app-shell-body">{children}</div>
       {showTabs ? <MainTabs /> : null}
     </div>
@@ -47,11 +44,13 @@ function ReadyRoutes() {
     <PlayabilityProvider>
       <ReadyShell>
         <Routes>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/x" element={<XSourcePage />} />
+          <Route path="/spankbang" element={<SpankbangSourcePage />} />
+          <Route path="/dashboard" element={<Navigate to="/x" replace />} />
+          <Route path="/library" element={<Navigate to="/spankbang" replace />} />
           <Route path="/watch/:tweetId" element={<WatchPage />} />
           <Route path={SPANKBANG_EMBED_POC_PATH} element={<SpankbangEmbedPocPage />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/x" replace />} />
         </Routes>
       </ReadyShell>
     </PlayabilityProvider>

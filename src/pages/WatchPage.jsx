@@ -383,7 +383,7 @@ export function WatchPage() {
     return (
       <div className="page">
         <p className="empty-state">Bookmark not found in the loaded database.</p>
-        <Link to="/dashboard">Back to dashboard</Link>
+        <Link to="/x">Back</Link>
       </div>
     );
   }
@@ -408,7 +408,7 @@ export function WatchPage() {
       navigate(-1);
       return;
     }
-    navigate('/dashboard');
+    navigate('/x');
   };
 
   return (
