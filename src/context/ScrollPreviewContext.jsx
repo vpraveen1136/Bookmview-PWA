@@ -184,6 +184,7 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
     const unsubScroll = subscribeScroll(onScroll);
     const onViewportChange = () => scheduleReconcile();
     window.addEventListener('resize', onViewportChange, { passive: true });
+    window.addEventListener('orientationchange', onViewportChange, { passive: true });
 
     const vv = window.visualViewport;
     if (vv) {
@@ -194,6 +195,7 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
     return () => {
       unsubScroll();
       window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('orientationchange', onViewportChange);
       if (vv) {
         vv.removeEventListener('resize', onViewportChange);
         vv.removeEventListener('scroll', onViewportChange);
@@ -248,15 +250,18 @@ export function ScrollPreviewProvider({ children, enabled = true }) {
 export function useScrollPreviewRegistration(id) {
   const ctx = useContext(ScrollPreviewContext);
   const idRef = useRef(id);
+  const elRef = useRef(null);
   idRef.current = id;
 
   const setRef = useCallback((element) => {
+    elRef.current = element;
     if (!ctx?.enabled || !idRef.current) return;
     ctx.register(idRef.current, element);
   }, [ctx]);
 
   useEffect(() => {
     if (!ctx?.enabled || !id) return undefined;
+    if (elRef.current) ctx.register(id, elRef.current);
     return () => ctx.register(id, null);
   }, [ctx, id]);
 

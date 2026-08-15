@@ -88,17 +88,22 @@ export function isNearScrollBottom(threshold = 96) {
 }
 
 export function subscribeScroll(listener) {
-  const body = getScrollRoot();
   const onScroll = () => listener();
-  if (body) {
-    body.addEventListener('scroll', onScroll, { passive: true });
-  }
-  window.addEventListener('scroll', onScroll, { passive: true });
+  const targets = new Set();
+  const body = getScrollRoot();
+  if (body) targets.add(body);
+  targets.add(window);
+  targets.add(document);
+  targets.add(document.documentElement);
+  if (document.body) targets.add(document.body);
+
+  targets.forEach((target) => {
+    target.addEventListener('scroll', onScroll, { passive: true });
+  });
   return () => {
-    if (body) {
-      body.removeEventListener('scroll', onScroll);
-    }
-    window.removeEventListener('scroll', onScroll);
+    targets.forEach((target) => {
+      target.removeEventListener('scroll', onScroll);
+    });
   };
 }
 
@@ -107,46 +112,34 @@ export function getScrollObservationTarget() {
   return getScrollRoot();
 }
 
-/** Visible scroll-preview band — below sticky chrome, above tab bar, iPad visualViewport-aware. */
+/**
+ * Visible content band for preview geometry.
+ * Uses chrome/tab getBoundingClientRect() so coordinates match video frames
+ * on iPhone, iPad, and Android (no visualViewport mix).
+ */
 export function getScrollPreviewViewport() {
+  const chromeEl = typeof document !== 'undefined'
+    ? document.querySelector('.source-app-chrome')
+    : null;
   const tabEl = typeof document !== 'undefined'
     ? document.querySelector('.main-tabs')
     : null;
-  const tabHeight = tabEl ? tabEl.getBoundingClientRect().height : 0;
 
-  let chromeBottom = 0;
-  if (typeof document !== 'undefined') {
-    const chromeEl = document.querySelector('.source-app-chrome');
-    if (chromeEl) {
-      const chromeRect = chromeEl.getBoundingClientRect();
-      if (chromeRect.top <= 2) {
-        chromeBottom = chromeRect.bottom;
-      }
-    }
-  }
+  const chromeRect = chromeEl?.getBoundingClientRect();
+  const tabRect = tabEl?.getBoundingClientRect();
 
-  if (typeof window !== 'undefined' && window.visualViewport) {
-    const vv = window.visualViewport;
-    const bandTop = Math.max(vv.offsetTop, chromeBottom);
-    const bandBottom = vv.offsetTop + vv.height - tabHeight;
-    const height = Math.max(120, bandBottom - bandTop);
-    return {
-      top: bandTop,
-      bottom: bandBottom,
-      left: vv.offsetLeft,
-      right: vv.offsetLeft + vv.width,
-      width: vv.width,
-      height,
-      center: bandTop + height / 2,
-    };
-  }
+  const top = chromeRect ? Math.max(0, chromeRect.bottom) : 0;
+  const fallbackBottom = window.innerHeight
+    || document.documentElement?.clientHeight
+    || 0;
+  const bottomRaw = tabRect ? tabRect.top : fallbackBottom;
+  const bottom = Math.max(top + 120, bottomRaw);
+  const height = bottom - top;
+  const width = window.innerWidth || document.documentElement?.clientWidth || 0;
 
-  const width = window.innerWidth;
-  const top = chromeBottom;
-  const height = Math.max(120, window.innerHeight - tabHeight - top);
   return {
     top,
-    bottom: top + height,
+    bottom,
     left: 0,
     right: width,
     width,
