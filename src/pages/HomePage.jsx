@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 
 import { BookmarkGridCard } from '../components/BookmarkGridCard.jsx';
 import { SkeletonGrid } from '../components/SkeletonGrid.jsx';
@@ -9,6 +9,11 @@ import { applyLibraryFilters, formatDuration, getDurationMs, sortLibraryItems } 
 import { gridColumnsClass } from '../lib/gridColumns.js';
 
 const HOME_BATCH_SIZE = 80;
+const homeFeedSessionState = {
+  activeSource: '',
+  displayCount: HOME_BATCH_SIZE,
+  shuffleSeed: 0,
+};
 
 function sourceLabel(catalog, slug) {
   const source = catalog?.sources?.find((item) => item.slug === slug);
@@ -26,12 +31,11 @@ function seededSortValue(tweetId, seed) {
 }
 
 export function HomePage() {
-  const navigate = useNavigate();
   const { library, catalog, isReady, hydrating } = useDb();
-  const [activeSource, setActiveSource] = useState('');
+  const [activeSource, setActiveSource] = useState(homeFeedSessionState.activeSource);
   const [gridColumns] = useGridColumns();
-  const [displayCount, setDisplayCount] = useState(HOME_BATCH_SIZE);
-  const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [displayCount, setDisplayCount] = useState(homeFeedSessionState.displayCount);
+  const [shuffleSeed, setShuffleSeed] = useState(homeFeedSessionState.shuffleSeed);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const touchStartRef = useRef(null);
@@ -46,11 +50,6 @@ export function HomePage() {
     { id: 'favorites', label: 'Favorites' },
     { id: 'unwatched', label: 'Unwatched' },
   ], [catalog]);
-
-  useEffect(() => {
-    setDisplayCount(HOME_BATCH_SIZE);
-    setShuffleSeed(0);
-  }, [activeSource]);
 
   const allItems = useMemo(() => {
     if (!catalog) return [];
@@ -71,10 +70,23 @@ export function HomePage() {
   const items = useMemo(() => allItems.slice(0, displayCount), [allItems, displayCount]);
   const hasMore = items.length < allItems.length;
 
-  const shuffleHomeFeed = useCallback(() => {
-    setRefreshing(true);
+  const selectSource = useCallback((sourceId) => {
+    if (sourceId === activeSource) return;
+    homeFeedSessionState.activeSource = sourceId;
+    homeFeedSessionState.displayCount = HOME_BATCH_SIZE;
+    homeFeedSessionState.shuffleSeed = 0;
+    setActiveSource(sourceId);
     setDisplayCount(HOME_BATCH_SIZE);
-    setShuffleSeed(Date.now());
+    setShuffleSeed(0);
+  }, [activeSource]);
+
+  const shuffleHomeFeed = useCallback(() => {
+    const nextShuffleSeed = Date.now();
+    setRefreshing(true);
+    homeFeedSessionState.displayCount = HOME_BATCH_SIZE;
+    homeFeedSessionState.shuffleSeed = nextShuffleSeed;
+    setDisplayCount(HOME_BATCH_SIZE);
+    setShuffleSeed(nextShuffleSeed);
     window.setTimeout(() => {
       setRefreshing(false);
       pullDistanceRef.current = 0;
@@ -138,7 +150,7 @@ export function HomePage() {
             key={chip.id || 'all'}
             type="button"
             className={`yt-chip ${activeSource === chip.id ? 'is-active' : ''}`}
-            onClick={() => setActiveSource(chip.id)}
+            onClick={() => selectSource(chip.id)}
           >
             {chip.label}
           </button>
@@ -148,13 +160,7 @@ export function HomePage() {
       <section className="yt-section-head">
         <div>
           <h2>{activeSource ? chips.find((chip) => chip.id === activeSource)?.label : 'Home'}</h2>
-          <p>
-            {items.length} of {allItems.length} videos{shuffleSeed ? ' · shuffled' : ''}
-          </p>
         </div>
-        <button type="button" className="yt-text-btn" onClick={() => navigate('/library?refreshSuccess=all')}>
-          View all
-        </button>
       </section>
 
       {items.length ? (
@@ -190,7 +196,11 @@ export function HomePage() {
         <button
           type="button"
           className="yt-load-more"
-          onClick={() => setDisplayCount((count) => count + HOME_BATCH_SIZE)}
+          onClick={() => setDisplayCount((count) => {
+            const nextCount = count + HOME_BATCH_SIZE;
+            homeFeedSessionState.displayCount = nextCount;
+            return nextCount;
+          })}
         >
           Load more
         </button>

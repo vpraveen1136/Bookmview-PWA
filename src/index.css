@@ -3312,7 +3312,7 @@ html.app-uses-window-scroll .app-shell-body {
 }
 
 .main-tabs {
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.1rem;
   padding: 0.35rem 0.45rem calc(0.35rem + env(safe-area-inset-bottom));
   background: rgba(15, 15, 18, 0.97);
