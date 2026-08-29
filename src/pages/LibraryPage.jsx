@@ -62,6 +62,11 @@ export function LibraryPage() {
   const pageTitle = activeCategory
     ? `${activeCategory.folder.title}: ${activeCategory.value}`
     : 'Library';
+  const filtered = useMemo(() => {
+    if (!catalog) return [];
+    const matched = applyLibraryFilters(library, { ...filters, manifestHealth: 'all' }, catalog, {});
+    return sortLibraryItems(matched, filters.sort, filters.section);
+  }, [catalog, filters, library]);
   const sourceFilteredCounts = useMemo(() => {
     if (!catalog || !activeCategory) return new Map();
     const baseFilters = {
@@ -93,12 +98,6 @@ export function LibraryPage() {
   const toggleSourceFilter = (slug) => {
     patchFilters({ sources: slug ? [slug] : [], refreshSuccess: 'all' });
   };
-
-  const filtered = useMemo(() => {
-    if (!catalog) return [];
-    const matched = applyLibraryFilters(library, { ...filters, manifestHealth: 'all' }, catalog, {});
-    return sortLibraryItems(matched, filters.sort, filters.section);
-  }, [catalog, filters, library]);
 
   const continueWatching = useMemo(
     () => listContinueWatching(library, { limit: 8 }),
