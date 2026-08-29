@@ -2,10 +2,9 @@ import { NavLink } from 'react-router-dom';
 
 const NAV_ITEMS = [
   { path: '/home', label: 'Home', icon: '⌂' },
-  { path: '/library', label: 'Library', icon: '▣' },
   { path: '/folders', label: 'Folders', icon: '▤' },
   { path: '/favorites', label: 'Favorites', icon: '♡' },
-  { path: '/search', label: 'Search', icon: '⌕' },
+  { path: '/library', label: 'Library', icon: '▣' },
 ];
 
 export function MainTabs() {

@@ -3508,6 +3508,45 @@ html.app-uses-window-scroll .app-shell-body {
   line-height: 1.45;
 }
 
+.yt-load-more {
+  display: block;
+  width: min(14rem, calc(100% - 2rem));
+  min-height: 2.65rem;
+  margin: 1rem auto 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.yt-load-more:active {
+  transform: scale(0.98);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.yt-pull-refresh {
+  position: fixed;
+  top: calc(3.35rem + env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 24;
+  pointer-events: none;
+  opacity: 0;
+  border-radius: 999px;
+  background: rgba(18, 18, 20, 0.94);
+  color: var(--text);
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.35);
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.45rem 0.85rem;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.yt-pull-refresh.is-visible {
+  opacity: 1;
+}
+
 @media (max-width: 420px) {
   .video-grid-cols-1 .grid-card {
     grid-template-columns: 44% minmax(0, 1fr);
