@@ -63,9 +63,8 @@ export function BookmarkGridCard({
 
   return (
     <>
-      <Link
+      <article
         className="grid-card"
-        to={to}
         onTouchStart={longPress.onTouchStart}
         onTouchEnd={longPress.onTouchEnd}
         onTouchMove={longPress.onTouchMove}
@@ -75,51 +74,65 @@ export function BookmarkGridCard({
         onContextMenu={longPress.onContextMenu}
         onClickCapture={longPress.onClickCapture}
       >
-        <div className="thumb-wrap" ref={thumbMeasureRef}>
-          {contentHidden ? (
-            <div className="thumb thumb-placeholder privacy-placeholder" aria-hidden="true">···</div>
-          ) : scrollPreviewEnabled ? (
-            <BookmarkScrollPreview
-              bookmark={item}
-              active={scrollPreviewIsActive}
-              placeholder={statusBadge?.label || 'Video'}
-            />
-          ) : thumb ? (
-            <img
-              className={`thumb thumb-fade ${thumbLoaded ? 'is-loaded' : ''}`}
-              src={thumb}
-              alt=""
-              loading="lazy"
-              draggable={false}
-              onLoad={() => setThumbLoaded(true)}
-            />
-          ) : (
-            <div className="thumb thumb-placeholder">
-              {statusBadge?.label || 'Video'}
+        <Link className="grid-card-link" to={to}>
+          <div className="thumb-wrap" ref={thumbMeasureRef}>
+            {contentHidden ? (
+              <div className="thumb thumb-placeholder privacy-placeholder" aria-hidden="true">···</div>
+            ) : scrollPreviewEnabled ? (
+              <BookmarkScrollPreview
+                bookmark={item}
+                active={scrollPreviewIsActive}
+                placeholder={statusBadge?.label || 'Video'}
+              />
+            ) : thumb ? (
+              <img
+                className={`thumb thumb-fade ${thumbLoaded ? 'is-loaded' : ''}`}
+                src={thumb}
+                alt=""
+                loading="lazy"
+                draggable={false}
+                onLoad={() => setThumbLoaded(true)}
+              />
+            ) : (
+              <div className="thumb thumb-placeholder">
+                {statusBadge?.label || 'Video'}
+              </div>
+            )}
+            {duration ? <span className="duration-badge">{duration}</span> : null}
+            {item.is_favorite ? <span className="fav-badge" aria-label="Favorite">★</span> : null}
+            {item.is_archived ? <span className="archive-badge" aria-label="Archived">👎</span> : null}
+            {statusBadge ? (
+              <span
+                className={`play-status-dot ${statusBadge.className}`}
+                title={statusBadge.label}
+                aria-label={statusBadge.label}
+              >
+                {statusBadge.text}
+              </span>
+            ) : null}
+          </div>
+          <div className="item-meta">
+            <div className={`item-title ${contentHidden ? 'privacy-hidden-text' : ''}`}>
+              {contentHidden ? '···' : title}
             </div>
-          )}
-          {duration ? <span className="duration-badge">{duration}</span> : null}
-          {item.is_favorite ? <span className="fav-badge" aria-label="Favorite">★</span> : null}
-          {item.is_archived ? <span className="archive-badge" aria-label="Archived">👎</span> : null}
-          {statusBadge ? (
-            <span
-              className={`play-status-dot ${statusBadge.className}`}
-              title={statusBadge.label}
-              aria-label={statusBadge.label}
-            >
-              {statusBadge.text}
-            </span>
-          ) : null}
-        </div>
-        <div className="item-meta">
-          <div className={`item-title ${contentHidden ? 'privacy-hidden-text' : ''}`}>
-            {contentHidden ? '···' : title}
+            <div className={`item-sub ${contentHidden ? 'privacy-hidden-text' : ''}`}>
+              {contentHidden ? '···' : subtitle}
+            </div>
           </div>
-          <div className={`item-sub ${contentHidden ? 'privacy-hidden-text' : ''}`}>
-            {contentHidden ? '···' : subtitle}
-          </div>
-        </div>
-      </Link>
+        </Link>
+        <button
+          type="button"
+          className="grid-card-menu"
+          aria-label="More actions"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setActionsOpen(true);
+          }}
+        >
+          ⋮
+        </button>
+      </article>
 
       <BookmarkQuickActionsSheet
         open={actionsOpen}

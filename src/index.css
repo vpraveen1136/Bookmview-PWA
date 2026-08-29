@@ -2975,6 +2975,74 @@ html.app-uses-window-scroll .app-shell-body {
   padding: 0.55rem 0.15rem 0.1rem;
 }
 
+.yt-video-feed {
+  margin-left: -0.75rem;
+  margin-right: -0.75rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+}
+
+.yt-video-feed > li {
+  width: 100%;
+}
+
+.yt-video-feed .grid-card {
+  position: relative;
+  width: 100%;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+.yt-video-feed .grid-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.yt-video-feed .thumb-wrap {
+  border-radius: 0;
+}
+
+.yt-video-feed .item-meta {
+  padding: 0.62rem 3rem 0.15rem 0.75rem;
+}
+
+.yt-video-feed .grid-card-menu {
+  position: absolute;
+  right: 0.45rem;
+  top: auto;
+  bottom: 0.1rem;
+  z-index: 4;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.35rem;
+  line-height: 1;
+  touch-action: manipulation;
+}
+
+.yt-video-feed .grid-card-menu:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.video-grid:not(.yt-video-feed) .grid-card-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.video-grid:not(.yt-video-feed) .grid-card-menu {
+  display: none;
+}
+
 .yt-video-feed.video-grid-cols-1 .thumb-wrap,
 .yt-video-feed.video-grid-cols-2 .thumb-wrap,
 .yt-video-feed .thumb-wrap {
