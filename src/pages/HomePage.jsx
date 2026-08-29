@@ -1,12 +1,14 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
 import { BookmarkGridCard } from '../components/BookmarkGridCard.jsx';
 import { SkeletonGrid } from '../components/SkeletonGrid.jsx';
+import { ScrollPreviewProvider } from '../context/ScrollPreviewContext.jsx';
 import { useDb } from '../context/DbContext.jsx';
 import { useGridColumns } from '../hooks/useGridColumns.js';
 import { applyLibraryFilters, formatDuration, getDurationMs, sortLibraryItems } from '../lib/libraryFilters.js';
 import { gridColumnsClass } from '../lib/gridColumns.js';
+import { scrollPreviewPrefetch } from '../lib/scrollPreviewPrefetch.js';
 
 const HOME_BATCH_SIZE = 80;
 const homeFeedSessionState = {
@@ -18,6 +20,11 @@ const homeFeedSessionState = {
 function sourceLabel(catalog, slug) {
   const source = catalog?.sources?.find((item) => item.slug === slug);
   return source?.display_name || slug;
+}
+
+function isXBookmark(bookmark) {
+  const slug = String(bookmark?.source_slug || 'x').trim().toLowerCase() || 'x';
+  return slug === 'x';
 }
 
 function seededSortValue(tweetId, seed) {
@@ -69,6 +76,16 @@ export function HomePage() {
 
   const items = useMemo(() => allItems.slice(0, displayCount), [allItems, displayCount]);
   const hasMore = items.length < allItems.length;
+  const xPreviewItems = useMemo(() => items.filter(isXBookmark), [items]);
+  const xScrollPreviewActive = xPreviewItems.length > 0;
+
+  useEffect(() => {
+    if (!xScrollPreviewActive) {
+      scrollPreviewPrefetch.clear();
+      return;
+    }
+    scrollPreviewPrefetch.setQueue(xPreviewItems);
+  }, [xPreviewItems, xScrollPreviewActive]);
 
   const selectSource = useCallback((sourceId) => {
     if (sourceId === activeSource) return;
@@ -130,13 +147,14 @@ export function HomePage() {
   if (!isReady) return <Navigate to="/" replace />;
 
   return (
-    <div
-      className="page youtube-page"
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchEnd}
-    >
+    <ScrollPreviewProvider enabled={xScrollPreviewActive}>
+      <div
+        className="page youtube-page"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
       <div
         className={`yt-pull-refresh ${pullDistance || refreshing ? 'is-visible' : ''}`}
         style={{ transform: `translate(-50%, ${refreshing ? 56 : pullDistance}px)` }}
@@ -180,6 +198,7 @@ export function HomePage() {
                     item.casts?.[0],
                     item.genres?.[0],
                   ]}
+                  scrollPreviewEnabled={isXBookmark(item)}
                 />
               </li>
             );
@@ -205,6 +224,7 @@ export function HomePage() {
           Load more
         </button>
       ) : null}
-    </div>
+      </div>
+    </ScrollPreviewProvider>
   );
 }
