@@ -343,7 +343,7 @@ export function LibraryPage() {
             </section>
           ) : null}
           <h3 className="library-section-title">All videos</h3>
-          <ul className={`video-grid ${gridColumnsClass(gridColumns)}`}>
+          <ul className={`video-grid yt-video-feed ${gridColumnsClass(gridColumns)}`}>
             {filtered.map((item) => {
               const duration = formatDuration(getDurationMs(item));
               const sourceLabel = item.source_slug && item.source_slug !== 'x'

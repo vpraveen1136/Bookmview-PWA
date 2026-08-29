@@ -2958,6 +2958,30 @@ html.app-uses-window-scroll .app-shell-body {
   opacity: 0.55;
 }
 
+.yt-video-feed.video-grid-cols-1,
+.yt-video-feed.video-grid-cols-2 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.yt-video-feed.video-grid-cols-1 .grid-card,
+.yt-video-feed.video-grid-cols-2 .grid-card,
+.yt-video-feed .grid-card {
+  display: block;
+}
+
+.yt-video-feed.video-grid-cols-1 .item-meta,
+.yt-video-feed.video-grid-cols-2 .item-meta,
+.yt-video-feed .item-meta {
+  padding: 0.55rem 0.15rem 0.1rem;
+}
+
+.yt-video-feed.video-grid-cols-1 .thumb-wrap,
+.yt-video-feed.video-grid-cols-2 .thumb-wrap,
+.yt-video-feed .thumb-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
 /* YouTube-inspired browsing shell */
 .yt-topbar {
   position: sticky;
@@ -3105,6 +3129,38 @@ html.app-uses-window-scroll .app-shell-body {
 
 .yt-video-feed {
   gap: 1rem;
+}
+
+.yt-video-feed.video-grid-cols-1,
+.yt-video-feed.video-grid-cols-2 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.yt-video-feed.video-grid-cols-1 .grid-card,
+.yt-video-feed.video-grid-cols-2 .grid-card {
+  display: block;
+}
+
+.yt-video-feed .thumb-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.yt-video-feed .item-meta {
+  padding: 0.55rem 0.15rem 0.1rem;
+}
+
+.yt-video-feed .item-title {
+  font-size: 0.96rem;
+  line-height: 1.28;
+  font-weight: 720;
+  -webkit-line-clamp: 2;
+}
+
+.yt-video-feed .item-sub {
+  margin-top: 0.22rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .yt-folder-grid {
@@ -3397,4 +3453,28 @@ html.app-uses-window-scroll .app-shell-body {
   .video-grid .item-sub {
     font-size: 0.72rem;
   }
+}
+
+.yt-video-feed.video-grid-cols-1,
+.yt-video-feed.video-grid-cols-2 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.yt-video-feed.video-grid-cols-1 .grid-card,
+.yt-video-feed.video-grid-cols-2 .grid-card,
+.yt-video-feed .grid-card {
+  display: block;
+}
+
+.yt-video-feed.video-grid-cols-1 .thumb-wrap,
+.yt-video-feed.video-grid-cols-2 .thumb-wrap,
+.yt-video-feed .thumb-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.yt-video-feed.video-grid-cols-1 .item-meta,
+.yt-video-feed.video-grid-cols-2 .item-meta,
+.yt-video-feed .item-meta {
+  padding: 0.55rem 0.15rem 0.1rem;
 }

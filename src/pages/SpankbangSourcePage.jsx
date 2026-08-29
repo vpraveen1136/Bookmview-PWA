@@ -79,7 +79,7 @@ export function SpankbangSourcePage() {
             {search ? 'No SpankBang videos match your search.' : 'No SpankBang bookmarks in this database.'}
           </div>
         ) : (
-          <ul className={`video-grid ${gridColumnsClass(gridColumns)}`}>
+          <ul className={`video-grid yt-video-feed ${gridColumnsClass(gridColumns)}`}>
             {filtered.map((item) => {
               const duration = formatDuration(getDurationMs(item));
               const embedReady = isSpankbangIframeEligible(item);

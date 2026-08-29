@@ -196,7 +196,7 @@ export function XSourcePage() {
         ) : null}
 
         {showQueue && items.length > 0 ? (
-          <ul className={`video-grid ${gridColumnsClass(gridColumns)}`}>
+          <ul className={`video-grid yt-video-feed ${gridColumnsClass(gridColumns)}`}>
             {items.map((item) => {
               const duration = formatDuration(getDurationMs(item));
               return (
