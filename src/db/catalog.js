@@ -111,6 +111,26 @@ export function loadLibraryCatalog(db) {
     hasTable(db, table) ? queryAll(db, `SELECT DISTINCT ${column} AS name FROM ${table} WHERE ${column} IS NOT NULL AND TRIM(${column}) != '' ORDER BY lower(${column}) COLLATE NOCASE`) : []
   );
 
+  const castGroups = hasTable(db, 'category_cast_groups')
+    ? queryAll(db, 'SELECT id, name FROM category_cast_groups ORDER BY lower(name) COLLATE NOCASE')
+    : [];
+
+  const castOptions = hasTable(db, 'category_cast')
+    ? queryAll(
+      db,
+      hasTable(db, 'category_cast_groups')
+        ? `SELECT c.id, c.name, c.group_id, g.name AS group_name
+           FROM category_cast c
+           LEFT JOIN category_cast_groups g ON g.id = c.group_id
+           WHERE c.name IS NOT NULL AND TRIM(c.name) != ''
+           ORDER BY lower(COALESCE(g.name, '')) COLLATE NOCASE, lower(c.name) COLLATE NOCASE`
+        : `SELECT id, name, NULL AS group_id, NULL AS group_name
+           FROM category_cast
+           WHERE name IS NOT NULL AND TRIM(name) != ''
+           ORDER BY lower(name) COLLATE NOCASE`,
+    )
+    : [];
+
   return {
     tags,
     authors,
@@ -122,9 +142,10 @@ export function loadLibraryCatalog(db) {
     genresByTweet,
     moodsByTweet,
     castByTweet,
+    castGroups,
     genreOptions: lookup('category_genres'),
     moodOptions: lookup('category_moods'),
-    castOptions: lookup('category_cast'),
+    castOptions,
     industryOptions: hasTable(db, 'category_industries')
       ? lookup('category_industries')
       : [],
