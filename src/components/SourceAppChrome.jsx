@@ -11,6 +11,7 @@ export function SourceAppChrome({
   searchPlaceholder = 'Search titles, authors, genre, cast, studio…',
   gridColumns,
   onGridColumnsChange,
+  showGridColumns = true,
   children,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -29,7 +30,9 @@ export function SourceAppChrome({
             <span className="source-app-menu-icon" aria-hidden="true">☰</span>
           </button>
           <div className="source-app-toolbar-spacer" />
-          <GridColumnToggle columns={gridColumns} onChange={onGridColumnsChange} compact />
+          {showGridColumns ? (
+            <GridColumnToggle columns={gridColumns} onChange={onGridColumnsChange} compact />
+          ) : null}
           <PrivacyEyeButton className="btn btn-icon" compact />
         </div>
         <div className="source-app-search-wrap">

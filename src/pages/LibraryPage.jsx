@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 
 import { BookmarkGridCard } from '../components/BookmarkGridCard.jsx';
+import { AppSlideMenu } from '../components/AppSlideMenu.jsx';
 import { FilterSheet, LibraryFilterPanel } from '../components/LibraryFilterSheet.jsx';
 import { GridColumnToggle } from '../components/GridColumnToggle.jsx';
 import { PrivacyEyeButton } from '../components/PrivacyEyeButton.jsx';
@@ -45,6 +46,7 @@ export function LibraryPage() {
   const libraryQuery = searchParams.toString();
   const { filters, patchFilters, setSection, clearFilters, activeCount } = useLibraryFilters();
   const [filterOpen, setFilterOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [gridColumns, setGridColumns] = useGridColumns();
   const [checkingId, setCheckingId] = useState(null);
 
@@ -95,6 +97,15 @@ export function LibraryPage() {
           ) : null}
         </p>
         <div className="library-hero-actions">
+          <button
+            type="button"
+            className="btn btn-icon"
+            aria-label="Open menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(true)}
+          >
+            ☰
+          </button>
           <PrivacyEyeButton className="btn btn-icon" compact />
           <GridColumnToggle columns={gridColumns} onChange={setGridColumns} compact />
         </div>
@@ -210,6 +221,7 @@ export function LibraryPage() {
           }}
         />
       </FilterSheet>
+      <AppSlideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
     </div>
   );
 }

@@ -13,6 +13,11 @@ export function AppSlideMenu({ open, onClose }) {
     navigate('/');
   };
 
+  const openFolder = (type) => {
+    onClose?.();
+    navigate(`/folders/${type}`);
+  };
+
   return (
     <>
       <div
@@ -37,6 +42,20 @@ export function AppSlideMenu({ open, onClose }) {
           <button type="button" className="btn app-slide-menu-btn" onClick={onChangeDb}>
             Change DB
           </button>
+        </div>
+        <div className="app-slide-menu-section">
+          <h3 className="app-slide-menu-section-title">Folders</h3>
+          <div className="app-slide-menu-folder-list">
+            <button type="button" className="app-slide-menu-folder" onClick={() => openFolder('cast')}>
+              Cast
+            </button>
+            <button type="button" className="app-slide-menu-folder" onClick={() => openFolder('studio')}>
+              Studio
+            </button>
+            <button type="button" className="app-slide-menu-folder" onClick={() => openFolder('genre')}>
+              Genre
+            </button>
+          </div>
         </div>
         <div className="app-slide-menu-section">
           <h3 className="app-slide-menu-section-title">Mode</h3>

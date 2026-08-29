@@ -6,6 +6,8 @@ import { TabScrollRestoration } from './components/TabScrollRestoration.jsx';
 import { PlayabilityProvider } from './context/PlayabilityContext.jsx';
 import { useDb } from './context/DbContext.jsx';
 import { OpenPage } from './pages/OpenPage.jsx';
+import { CategoryFolderPage } from './pages/CategoryFolderPage.jsx';
+import { LibraryPage } from './pages/LibraryPage.jsx';
 import { SpankbangSourcePage } from './pages/SpankbangSourcePage.jsx';
 import { WatchPage } from './pages/WatchPage.jsx';
 import { XSourcePage } from './pages/XSourcePage.jsx';
@@ -46,8 +48,9 @@ function ReadyRoutes() {
         <Routes>
           <Route path="/x" element={<XSourcePage />} />
           <Route path="/spankbang" element={<SpankbangSourcePage />} />
+          <Route path="/folders/:type" element={<CategoryFolderPage />} />
           <Route path="/dashboard" element={<Navigate to="/x" replace />} />
-          <Route path="/library" element={<Navigate to="/spankbang" replace />} />
+          <Route path="/library" element={<LibraryPage />} />
           <Route path="/watch/:tweetId" element={<WatchPage />} />
           <Route path={SPANKBANG_EMBED_POC_PATH} element={<SpankbangEmbedPocPage />} />
           <Route path="*" element={<Navigate to="/x" replace />} />
