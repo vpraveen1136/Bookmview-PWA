@@ -8,7 +8,12 @@ import { PrivacyProvider } from './context/PrivacyContext.jsx';
 import { App } from './App.jsx';
 import './index.css';
 
-registerSW({ immediate: true });
+registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    window.dispatchEvent(new Event('bookmview-pwa-update-ready'));
+  },
+});
 
 const baseUrl = import.meta.env.BASE_URL || '/';
 const routerBasename = baseUrl === '/' ? undefined : baseUrl.replace(/\/$/, '');

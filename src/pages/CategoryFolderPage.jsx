@@ -1,73 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import { SourceAppChrome } from '../components/SourceAppChrome.jsx';
+import { SkeletonGrid } from '../components/SkeletonGrid.jsx';
 import { useDb } from '../context/DbContext.jsx';
+import {
+  CATEGORY_FOLDERS,
+  buildFolderValues,
+  formatSourceCounts,
+} from '../lib/categoryFolders.js';
 
-const FOLDERS = {
-  cast: {
-    title: 'Cast',
-    param: 'movieCast',
-    optionsKey: 'castOptions',
-    valuesFor: (bookmark) => bookmark.casts ?? [],
-  },
-  studio: {
-    title: 'Studio',
-    param: 'movieStudio',
-    optionsKey: 'studioOptions',
-    valuesFor: (bookmark) => (bookmark.studio ? [bookmark.studio] : []),
-  },
-  genre: {
-    title: 'Genre',
-    param: 'movieGenre',
-    optionsKey: 'genreOptions',
-    valuesFor: (bookmark) => bookmark.genres ?? [],
-  },
-};
-
-function countAssignedValues(library, folder) {
-  const counts = new Map();
-  for (const bookmark of library || []) {
-    if (bookmark.is_archived) continue;
-    for (const rawValue of folder.valuesFor(bookmark)) {
-      const value = String(rawValue || '').trim();
-      if (!value) continue;
-      const key = value.toLowerCase();
-      const current = counts.get(key) || { name: value, count: 0 };
-      current.count += 1;
-      counts.set(key, current);
-    }
-  }
-  return counts;
-}
-
-function buildFolderValues(library, catalog, folder) {
-  const assigned = countAssignedValues(library, folder);
-  const merged = new Map();
-  const options = catalog?.[folder.optionsKey] ?? [];
-
-  for (const option of options) {
-    const name = String(option.name || '').trim();
-    if (!name) continue;
-    const key = `${option.group_id ?? ''}::${name.toLowerCase()}`;
-    merged.set(key, {
-      ...option,
-      name,
-      count: Number(assigned.get(name.toLowerCase())?.count ?? 0),
-    });
-  }
-
-  for (const item of assigned.values()) {
-    const hasOption = [...merged.values()].some((option) => option.name.toLowerCase() === item.name.toLowerCase());
-    if (!hasOption) {
-      merged.set(`assigned::${item.name.toLowerCase()}`, item);
-    }
-  }
-
-  return [...merged.values()].sort((a, b) => (
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-  ));
-}
+const SCROLL_KEY_PREFIX = 'bookmview.pwa.folderScroll.';
 
 function groupCastValues(values) {
   const groups = new Map();
@@ -83,30 +26,77 @@ function groupCastValues(values) {
   ));
 }
 
+function firstLetter(value) {
+  const char = String(value || '').trim().charAt(0).toUpperCase();
+  return /^[A-Z0-9]$/.test(char) ? char : '#';
+}
+
+function availableLetters(values) {
+  return [...new Set(values.map((item) => firstLetter(item.name)))].sort((a, b) => {
+    if (a === '#') return 1;
+    if (b === '#') return -1;
+    return a.localeCompare(b);
+  });
+}
+
 export function CategoryFolderPage() {
   const { type } = useParams();
   const navigate = useNavigate();
   const { library, catalog, isReady, hydrating } = useDb();
   const [search, setSearch] = useState('');
-  const folder = FOLDERS[type];
+  const [openGroups, setOpenGroups] = useState(() => new Set());
+  const [letter, setLetter] = useState('');
+  const folder = CATEGORY_FOLDERS[type];
+
+  const allValues = useMemo(() => (
+    folder ? buildFolderValues(library, catalog, folder) : []
+  ), [catalog, folder, library]);
+
+  const letters = useMemo(() => availableLetters(allValues), [allValues]);
 
   const values = useMemo(() => {
-    if (!folder) return [];
-    const list = buildFolderValues(library, catalog, folder);
+    let list = allValues;
+    if (letter) list = list.filter((item) => firstLetter(item.name) === letter);
     const needle = search.trim().toLowerCase();
     if (!needle) return list;
     return list.filter((item) => (
       item.name.toLowerCase().includes(needle)
       || String(item.group_name || '').toLowerCase().includes(needle)
     ));
-  }, [catalog, folder, library, search]);
+  }, [allValues, letter, search]);
 
   const castGroups = useMemo(() => (
     type === 'cast' ? groupCastValues(values) : []
   ), [type, values]);
 
+  useEffect(() => {
+    if (type !== 'cast') return;
+    setOpenGroups(new Set(castGroups.map((group) => group.name)));
+  }, [castGroups, type]);
+
+  useEffect(() => {
+    const key = `${SCROLL_KEY_PREFIX}${type || ''}`;
+    const saved = Number(sessionStorage.getItem(key));
+    if (Number.isFinite(saved) && saved > 0) {
+      window.requestAnimationFrame(() => window.scrollTo({ top: saved, behavior: 'auto' }));
+    }
+    const save = () => sessionStorage.setItem(key, String(window.scrollY || 0));
+    window.addEventListener('pagehide', save);
+    return () => {
+      save();
+      window.removeEventListener('pagehide', save);
+    };
+  }, [type]);
+
   if (hydrating) {
-    return <div className="page empty-state">Restoring your library…</div>;
+    return (
+      <div className="page category-folder-page">
+        <header className="category-folder-header">
+          <h2>Restoring library</h2>
+        </header>
+        <SkeletonGrid />
+      </div>
+    );
   }
 
   if (!isReady) {
@@ -120,7 +110,18 @@ export function CategoryFolderPage() {
   const openFolderValue = (value) => {
     const params = new URLSearchParams();
     params.set(folder.param, value);
+    params.set('refreshSuccess', 'all');
+    params.set('fromFolder', type);
     navigate(`/library?${params.toString()}`);
+  };
+
+  const toggleGroup = (groupName) => {
+    setOpenGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupName)) next.delete(groupName);
+      else next.add(groupName);
+      return next;
+    });
   };
 
   return (
@@ -130,56 +131,102 @@ export function CategoryFolderPage() {
         onSearchChange={setSearch}
         searchPlaceholder={`Search ${folder.title.toLowerCase()}...`}
         showGridColumns={false}
+        leadingAction={{
+          label: 'Back',
+          ariaLabel: 'Go back',
+          onClick: () => navigate(-1),
+        }}
       >
+        <nav className="folder-breadcrumb" aria-label="Breadcrumb">
+          <button type="button" onClick={() => navigate('/x')}>Home</button>
+          <span>/</span>
+          <span>{folder.title}</span>
+        </nav>
+
         <header className="category-folder-header">
-          <h2>{folder.title}</h2>
-          <p>{values.length} tag{values.length === 1 ? '' : 's'}</p>
+          <div>
+            <h2>{folder.title}</h2>
+            <p>{values.length} tag{values.length === 1 ? '' : 's'} · {allValues.reduce((sum, item) => sum + Number(item.count || 0), 0)} videos</p>
+          </div>
+          {letter ? (
+            <button type="button" className="btn btn-sm" onClick={() => setLetter('')}>All</button>
+          ) : null}
         </header>
 
+        {letters.length > 1 ? (
+          <div className="folder-alphabet" aria-label={`${folder.title} alphabet`}>
+            {letters.map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={letter === item ? 'is-active' : ''}
+                onClick={() => setLetter(letter === item ? '' : item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         {values.length === 0 ? (
-          <div className="empty-state">No {folder.title.toLowerCase()} values found.</div>
-        ) : (
-          type === 'cast' ? (
-            <ul className="category-folder-list">
-              {castGroups.map((group) => (
+          <div className="empty-state">
+            No {folder.title.toLowerCase()} values found.
+            <div className="empty-state-actions">
+              <button type="button" className="btn" onClick={() => { setSearch(''); setLetter(''); }}>Show all</button>
+            </div>
+          </div>
+        ) : type === 'cast' ? (
+          <ul className="category-folder-list">
+            {castGroups.map((group) => {
+              const open = openGroups.has(group.name);
+              return (
                 <li key={group.name} className="category-folder-group">
-                  <div className="category-folder-group-header">
-                    <span>{group.name}</span>
-                    <span>{group.count}</span>
-                  </div>
-                  <ul className="category-folder-sublist">
-                    {group.items.map((item) => (
-                      <li key={`${group.name}-${item.name}`}>
-                        <button
-                          type="button"
-                          className="category-folder-item"
-                          onClick={() => openFolderValue(item.name)}
-                        >
-                          <span>{item.name}</span>
-                          <span>{item.count}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <ul className="category-folder-list">
-              {values.map((item) => (
-                <li key={item.name}>
                   <button
                     type="button"
-                    className="category-folder-item"
-                    onClick={() => openFolderValue(item.name)}
+                    className="category-folder-group-header"
+                    aria-expanded={open}
+                    onClick={() => toggleGroup(group.name)}
                   >
-                    <span>{item.name}</span>
-                    <span>{item.count}</span>
+                    <span>{group.name}</span>
+                    <span>{group.count}</span>
                   </button>
+                  {open ? (
+                    <ul className="category-folder-sublist">
+                      {group.items.map((item) => (
+                        <li key={`${group.name}-${item.name}`}>
+                          <button
+                            type="button"
+                            className="category-folder-item"
+                            onClick={() => openFolderValue(item.name)}
+                          >
+                            <span>{item.name}</span>
+                            <small>{formatSourceCounts(item.sources, catalog)}</small>
+                            <span>{item.count}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </li>
-              ))}
-            </ul>
-          )
+              );
+            })}
+          </ul>
+        ) : (
+          <ul className="category-folder-list">
+            {values.map((item) => (
+              <li key={item.name}>
+                <button
+                  type="button"
+                  className="category-folder-item"
+                  onClick={() => openFolderValue(item.name)}
+                >
+                  <span>{item.name}</span>
+                  <small>{formatSourceCounts(item.sources, catalog)}</small>
+                  <span>{item.count}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </SourceAppChrome>
     </div>

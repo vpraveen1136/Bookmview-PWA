@@ -12,6 +12,7 @@ export function SourceAppChrome({
   gridColumns,
   onGridColumnsChange,
   showGridColumns = true,
+  leadingAction = null,
   children,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -20,6 +21,16 @@ export function SourceAppChrome({
     <>
       <header className="source-app-chrome">
         <div className="source-app-toolbar">
+          {leadingAction ? (
+            <button
+              type="button"
+              className="btn btn-icon source-app-back-btn"
+              aria-label={leadingAction.ariaLabel || leadingAction.label}
+              onClick={leadingAction.onClick}
+            >
+              {leadingAction.label}
+            </button>
+          ) : null}
           <button
             type="button"
             className="btn btn-icon source-app-menu-btn"

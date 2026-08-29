@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 
 import { BookmarkGridCard } from '../components/BookmarkGridCard.jsx';
 import { SourceAppChrome } from '../components/SourceAppChrome.jsx';
 import { ScrollPreviewProvider } from '../context/ScrollPreviewContext.jsx';
+import { SkeletonGrid } from '../components/SkeletonGrid.jsx';
 import { useDb } from '../context/DbContext.jsx';
 import { usePlayability } from '../context/PlayabilityContext.jsx';
 import { useGridColumns } from '../hooks/useGridColumns.js';
@@ -37,6 +38,7 @@ export function XSourcePage() {
     eligibleCount,
     PLAYABILITY_BATCH: batch,
   } = usePlayability();
+  const [searchParams] = useSearchParams();
   const { search, setSearch } = useSourceSearch();
   const [gridColumns, setGridColumns] = useGridColumns();
   const [checkingId, setCheckingId] = useState(null);
@@ -48,14 +50,22 @@ export function XSourcePage() {
   );
 
   const items = useMemo(() => {
-    if (!search.trim() || !catalog) return xDiscovery;
+    if (!catalog) return xDiscovery;
     return applyLibraryFilters(
       xDiscovery,
-      { search, sources: ['x'], manifestHealth: 'all' },
+      {
+        search,
+        sources: ['x'],
+        manifestHealth: 'all',
+        refreshSuccess: searchParams.get('refreshSuccess') || 'all',
+        movieCast: searchParams.get('movieCast') || '',
+        movieStudio: searchParams.get('movieStudio') || '',
+        movieGenre: searchParams.get('movieGenre') || '',
+      },
       catalog,
       {},
     );
-  }, [catalog, search, xDiscovery]);
+  }, [catalog, search, searchParams, xDiscovery]);
 
   const minDisplay = batch?.INITIAL_DISPLAY ?? PLAYABILITY_BATCH.INITIAL_DISPLAY;
   const checkingLabel = useMemo(() => {
@@ -103,7 +113,11 @@ export function XSourcePage() {
   }, [capPaused, hasMoreToProbe, requestMorePlayables]);
 
   if (hydrating) {
-    return <div className="page empty-state">Restoring your library…</div>;
+    return (
+      <div className="page source-page">
+        <SkeletonGrid />
+      </div>
+    );
   }
 
   if (!isReady) {

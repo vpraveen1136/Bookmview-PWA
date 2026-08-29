@@ -6,7 +6,7 @@ import { useScrollPreviewActive, useScrollPreviewRegistration } from '../context
 import { useLongPress } from '../hooks/useLongPress.js';
 import { BookmarkQuickActionsSheet } from './BookmarkQuickActionsSheet.jsx';
 import { BookmarkScrollPreview } from './BookmarkScrollPreview.jsx';
-import { getBookmarkDisplayTitle, getBookmarkThumbnailUrl } from '../lib/playback.js';
+import { getBookmarkDisplayTitle, getBookmarkPageUrl, getBookmarkThumbnailUrl } from '../lib/playback.js';
 
 export function BookmarkGridCard({
   item,
@@ -29,15 +29,21 @@ export function BookmarkGridCard({
     : scrollPreviewActive;
   const thumbMeasureRef = scrollPreviewEnabled ? previewRegisterRef : cardRef;
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [thumbLoaded, setThumbLoaded] = useState(false);
   const thumb = getBookmarkThumbnailUrl(item);
   const title = getBookmarkDisplayTitle(item);
 
   const longPress = useLongPress({
     onLongPress: () => setActionsOpen(true),
-    disabled: !onCheckPlayability,
   });
 
   const subtitle = subtitleParts.filter(Boolean).join(' · ') || 'Video';
+  const pageUrl = getBookmarkPageUrl(item);
+
+  const copyText = async (label, value) => {
+    if (!value || !navigator.clipboard?.writeText) return;
+    await navigator.clipboard.writeText(value);
+  };
 
   return (
     <>
@@ -63,7 +69,14 @@ export function BookmarkGridCard({
               placeholder={statusBadge?.label || 'Video'}
             />
           ) : thumb ? (
-            <img className="thumb" src={thumb} alt="" loading="lazy" draggable={false} />
+            <img
+              className={`thumb thumb-fade ${thumbLoaded ? 'is-loaded' : ''}`}
+              src={thumb}
+              alt=""
+              loading="lazy"
+              draggable={false}
+              onLoad={() => setThumbLoaded(true)}
+            />
           ) : (
             <div className="thumb thumb-placeholder">
               {statusBadge?.label || 'Video'}
@@ -101,6 +114,23 @@ export function BookmarkGridCard({
             label: checkingPlayability ? 'Checking playability…' : 'Check Playability',
             disabled: checkingPlayability || !onCheckPlayability,
             onClick: () => onCheckPlayability?.(item),
+          },
+          {
+            id: 'copy-title',
+            label: 'Copy Title',
+            onClick: () => copyText('title', title),
+          },
+          {
+            id: 'copy-source',
+            label: 'Copy Source URL',
+            disabled: !pageUrl || !navigator.clipboard,
+            onClick: () => copyText('source', pageUrl),
+          },
+          {
+            id: 'open-source',
+            label: 'Open Source',
+            disabled: !pageUrl,
+            onClick: () => window.open(pageUrl, '_blank', 'noopener,noreferrer'),
           },
         ]}
       />

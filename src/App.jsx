@@ -2,6 +2,8 @@ import { useLayoutEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { MainTabs } from './components/MainTabs.jsx';
+import { PwaStatusPrompts } from './components/PwaStatusPrompts.jsx';
+import { ResumeBar } from './components/ResumeBar.jsx';
 import { TabScrollRestoration } from './components/TabScrollRestoration.jsx';
 import { PlayabilityProvider } from './context/PlayabilityContext.jsx';
 import { useDb } from './context/DbContext.jsx';
@@ -36,6 +38,8 @@ function ReadyShell({ children }) {
     <div className={`app-shell ${immersive ? 'app-shell-immersive' : ''} ${showTabs ? 'app-shell-with-tabs' : ''}`}>
       <TabScrollRestoration />
       <div className="app-shell-body">{children}</div>
+      {showTabs ? <PwaStatusPrompts /> : null}
+      {showTabs ? <ResumeBar /> : null}
       {showTabs ? <MainTabs /> : null}
     </div>
   );

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 
 import { BookmarkGridCard } from '../components/BookmarkGridCard.jsx';
 import { SourceAppChrome } from '../components/SourceAppChrome.jsx';
+import { SkeletonGrid } from '../components/SkeletonGrid.jsx';
 import { useDb } from '../context/DbContext.jsx';
 import { useSourceSearch } from '../hooks/useSourceSearch.js';
 import { useGridColumns } from '../hooks/useGridColumns.js';
@@ -19,6 +20,7 @@ const SPANKBANG_SLUG = 'spankbang';
 
 export function SpankbangSourcePage() {
   const { library, catalog, isReady, hydrating } = useDb();
+  const [searchParams] = useSearchParams();
   const { search, setSearch } = useSourceSearch();
   const [gridColumns, setGridColumns] = useGridColumns();
 
@@ -36,15 +38,23 @@ export function SpankbangSourcePage() {
         sources: [SPANKBANG_SLUG],
         section: 'videos',
         manifestHealth: 'all',
+        refreshSuccess: searchParams.get('refreshSuccess') || 'all',
+        movieCast: searchParams.get('movieCast') || '',
+        movieStudio: searchParams.get('movieStudio') || '',
+        movieGenre: searchParams.get('movieGenre') || '',
       },
       catalog,
       {},
     );
     return sortLibraryItems(matched, 'newest', 'videos');
-  }, [catalog, search, spankbangLibrary]);
+  }, [catalog, search, searchParams, spankbangLibrary]);
 
   if (hydrating) {
-    return <div className="page empty-state">Restoring your library…</div>;
+    return (
+      <div className="page source-page">
+        <SkeletonGrid />
+      </div>
+    );
   }
 
   if (!isReady) {
