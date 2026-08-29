@@ -2,6 +2,7 @@ import { useLayoutEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { MainTabs } from './components/MainTabs.jsx';
+import { AppTopBar } from './components/AppTopBar.jsx';
 import { PwaStatusPrompts } from './components/PwaStatusPrompts.jsx';
 import { ResumeBar } from './components/ResumeBar.jsx';
 import { TabScrollRestoration } from './components/TabScrollRestoration.jsx';
@@ -10,6 +11,10 @@ import { useDb } from './context/DbContext.jsx';
 import { OpenPage } from './pages/OpenPage.jsx';
 import { CategoryFolderPage } from './pages/CategoryFolderPage.jsx';
 import { LibraryPage } from './pages/LibraryPage.jsx';
+import { FavoritesPage } from './pages/FavoritesPage.jsx';
+import { FoldersPage } from './pages/FoldersPage.jsx';
+import { HomePage } from './pages/HomePage.jsx';
+import { SearchPage } from './pages/SearchPage.jsx';
 import { SpankbangSourcePage } from './pages/SpankbangSourcePage.jsx';
 import { WatchPage } from './pages/WatchPage.jsx';
 import { XSourcePage } from './pages/XSourcePage.jsx';
@@ -37,6 +42,7 @@ function ReadyShell({ children }) {
   return (
     <div className={`app-shell ${immersive ? 'app-shell-immersive' : ''} ${showTabs ? 'app-shell-with-tabs' : ''}`}>
       <TabScrollRestoration />
+      {showTabs ? <AppTopBar /> : null}
       <div className="app-shell-body">{children}</div>
       {showTabs ? <PwaStatusPrompts /> : null}
       {showTabs ? <ResumeBar /> : null}
@@ -52,12 +58,16 @@ function ReadyRoutes() {
         <Routes>
           <Route path="/x" element={<XSourcePage />} />
           <Route path="/spankbang" element={<SpankbangSourcePage />} />
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/folders" element={<FoldersPage />} />
+          <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/folders/:type" element={<CategoryFolderPage />} />
-          <Route path="/dashboard" element={<Navigate to="/x" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/home" replace />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/watch/:tweetId" element={<WatchPage />} />
           <Route path={SPANKBANG_EMBED_POC_PATH} element={<SpankbangEmbedPocPage />} />
-          <Route path="*" element={<Navigate to="/x" replace />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </ReadyShell>
     </PlayabilityProvider>

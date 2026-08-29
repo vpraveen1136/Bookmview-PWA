@@ -20,7 +20,7 @@ export function OpenPage() {
   }
 
   if (isReady) {
-    return <Navigate to="/x" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   const onPick = async (event) => {
@@ -28,7 +28,7 @@ export function OpenPage() {
     if (!file) return;
     try {
       await loadFromFile(file);
-      navigate('/x');
+      navigate('/home');
     } catch {
       // loadError set in context
     } finally {

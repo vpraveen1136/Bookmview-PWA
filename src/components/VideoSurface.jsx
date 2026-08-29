@@ -65,7 +65,6 @@ export function VideoSurface({
   const hlsRef = useRef(null);
   const [errorText, setErrorText] = useState('');
   const [errorDetail, setErrorDetail] = useState('');
-  const [loading, setLoading] = useState(false);
   const [needsTapPlay, setNeedsTapPlay] = useState(false);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(Boolean(mutedProp));
@@ -100,15 +99,12 @@ export function VideoSurface({
   useEffect(() => {
     setErrorText('');
     setErrorDetail('');
-    setLoading(Boolean(source?.url));
     setNeedsTapPlay(false);
     setPaused(false);
     const video = videoRef.current;
     if (!video || !source?.url) return undefined;
 
     let cancelled = false;
-    let loadTimeout = null;
-
     const buildPlan = (src) => {
       const plan = [];
       const seen = new Set();
@@ -132,7 +128,6 @@ export function VideoSurface({
     fallbackState.current = { index: 0 };
 
     const reportError = (message) => {
-      setLoading(false);
       const friendly = friendlyError(message);
       setErrorText(friendly.short);
       setErrorDetail(friendly.detail || message);
@@ -142,7 +137,6 @@ export function VideoSurface({
     const reportWithDiagnosis = async (fallbackMessage, urlToCheck) => {
       const token = ++diagnoseToken.current;
       const friendly = friendlyError(fallbackMessage);
-      setLoading(false);
       setErrorText(friendly.short);
       setErrorDetail('Checking link…');
       const detail = await diagnosePlaybackUrl(urlToCheck || source.url);
@@ -179,11 +173,6 @@ export function VideoSurface({
     };
 
     const onLoaded = () => {
-      if (loadTimeout) {
-        window.clearTimeout(loadTimeout);
-        loadTimeout = null;
-      }
-      setLoading(false);
       if (initialSeekDoneRef.current === tweetId) {
         tryPlay();
         return;
@@ -209,11 +198,6 @@ export function VideoSurface({
     };
 
     const onVideoError = () => {
-      if (loadTimeout) {
-        window.clearTimeout(loadTimeout);
-        loadTimeout = null;
-      }
-      setLoading(false);
       if (cancelled) return;
       if (tryNextPlanEntry()) return;
       const current = video.currentSrc || plan[fallbackState.current.index]?.url || source.url;
@@ -238,7 +222,6 @@ export function VideoSurface({
 
       video.removeEventListener('error', onVideoError);
       video.removeEventListener('loadedmetadata', onLoaded);
-      video.removeEventListener('canplay', onLoaded);
 
       if (entry.type === 'hls') {
         video.removeAttribute('src');
@@ -248,7 +231,6 @@ export function VideoSurface({
         if (canPlayNativeHls(video)) {
           video.src = entry.url;
           video.addEventListener('loadedmetadata', onLoaded, { once: true });
-          video.addEventListener('canplay', onLoaded, { once: true });
           video.addEventListener('error', onVideoError);
           tryPlay();
           return;
@@ -284,25 +266,17 @@ export function VideoSurface({
 
       loadMp4(entry.url);
       video.addEventListener('loadedmetadata', onLoaded, { once: true });
-      video.addEventListener('canplay', onLoaded, { once: true });
       video.addEventListener('error', onVideoError);
     };
 
     if (plan.length) {
       loadPlanEntry(plan[0]);
-      loadTimeout = window.setTimeout(() => {
-        if (!cancelled && video.readyState < 1) {
-          reportWithDiagnosis('Video did not start loading.', source.url);
-        }
-      }, 8000);
     }
 
     return () => {
       cancelled = true;
-      if (loadTimeout) window.clearTimeout(loadTimeout);
       video.removeEventListener('error', onVideoError);
       video.removeEventListener('loadedmetadata', onLoaded);
-      video.removeEventListener('canplay', onLoaded);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
@@ -530,10 +504,6 @@ export function VideoSurface({
           <span className="watch-source-pill">{titleMeta.source}</span>
           <p className="watch-title-overlay">{titleMeta.title}</p>
         </div>
-      ) : null}
-
-      {isActive && !errorText && loading ? (
-        <div className="watch-loading" role="status">Loading video…</div>
       ) : null}
 
       {isActive && !errorText && controlsShown && (paused || needsTapPlay) ? (

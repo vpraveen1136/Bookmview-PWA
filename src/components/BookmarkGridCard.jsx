@@ -100,6 +100,7 @@ export function BookmarkGridCard({
           )}
           {duration ? <span className="duration-badge">{duration}</span> : null}
           {item.is_favorite ? <span className="fav-badge" aria-label="Favorite">★</span> : null}
+          {item.is_archived ? <span className="archive-badge" aria-label="Archived">👎</span> : null}
           {statusBadge ? (
             <span
               className={`play-status-dot ${statusBadge.className}`}

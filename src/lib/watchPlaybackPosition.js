@@ -36,6 +36,13 @@ export function setPlaybackPosition(tweetId, seconds) {
   writeMap(map);
 }
 
+export function clearPlaybackPosition(tweetId) {
+  if (!tweetId) return;
+  const map = readMap();
+  delete map[tweetId];
+  writeMap(map);
+}
+
 export function listContinueWatching(library, { limit = 12 } = {}) {
   const map = readMap();
   const entries = Object.entries(map)

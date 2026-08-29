@@ -186,9 +186,9 @@ export function FilterChips({ filters, catalog, onPatch, onClear }) {
 }
 
 const SECTIONS = [
-  { id: 'videos', label: 'Videos' },
+  { id: 'videos', label: 'All' },
   { id: 'favorites', label: 'Favorites' },
-  { id: 'history', label: 'History' },
+  { id: 'history', label: 'Watched' },
   { id: 'archived', label: 'Archived' },
 ];
 

@@ -2,10 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { BookmarkGridCard } from '../components/BookmarkGridCard.jsx';
-import { AppSlideMenu } from '../components/AppSlideMenu.jsx';
 import { FilterSheet, LibraryFilterPanel } from '../components/LibraryFilterSheet.jsx';
 import { GridColumnToggle } from '../components/GridColumnToggle.jsx';
-import { PrivacyEyeButton } from '../components/PrivacyEyeButton.jsx';
 import { SkeletonGrid } from '../components/SkeletonGrid.jsx';
 import { useDb } from '../context/DbContext.jsx';
 import { usePlayability } from '../context/PlayabilityContext.jsx';
@@ -42,14 +40,13 @@ function statusMeta(status, PLAYABILITY) {
 
 export function LibraryPage() {
   const navigate = useNavigate();
-  const { library, catalog, isReady, fileName, hydrating } = useDb();
+  const { library, catalog, isReady, hydrating } = useDb();
   const { getStatus, checkPlayability, PLAYABILITY, progress, busy } = usePlayability();
   const { contentHidden } = usePrivacy();
   const [searchParams] = useSearchParams();
   const libraryQuery = searchParams.toString();
   const { filters, patchFilters, setSection, clearFilters, activeCount } = useLibraryFilters();
   const [filterOpen, setFilterOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [gridColumns, setGridColumns] = useGridColumns();
   const [checkingId, setCheckingId] = useState(null);
   const fromFolder = searchParams.get('fromFolder') || '';
@@ -145,7 +142,6 @@ export function LibraryPage() {
         <h2 className="library-brand">{pageTitle}</h2>
         <p className="library-hero-sub">
           {filtered.length} videos
-          {fileName ? <span className="db-hint-inline"> · {fileName}</span> : null}
           {busy ? (
             <span className="db-hint-inline">
               {' '}
@@ -174,16 +170,6 @@ export function LibraryPage() {
               Clear
             </button>
           ) : null}
-          <button
-            type="button"
-            className="btn btn-icon"
-            aria-label="Open menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen(true)}
-          >
-            ☰
-          </button>
-          <PrivacyEyeButton className="btn btn-icon" compact />
           <GridColumnToggle columns={gridColumns} onChange={setGridColumns} compact />
         </div>
       </header>
@@ -246,32 +232,33 @@ export function LibraryPage() {
         </section>
       ) : null}
 
-      <LibrarySectionTabs section={filters.section} onChange={setSection} />
-
-      {activeCategory ? (
-        <div className="source-filter-row" aria-label="Source filters">
-          <button
-            type="button"
-            className={`source-filter-pill${!(filters.sources ?? []).length ? ' is-active' : ''}`}
-            onClick={() => toggleSourceFilter('')}
-          >
-            All <span>{allSourceFilteredCount}</span>
-          </button>
-          {(catalog?.sources ?? []).map((source) => (
+      <div className="yt-library-sticky">
+        <LibrarySectionTabs section={filters.section} onChange={setSection} />
+        {activeCategory ? (
+          <div className="source-filter-row" aria-label="Source filters">
             <button
-              key={source.slug}
               type="button"
-              className={`source-filter-pill${(filters.sources ?? []).includes(source.slug) ? ' is-active' : ''}`}
-              onClick={() => toggleSourceFilter(source.slug)}
+              className={`source-filter-pill${!(filters.sources ?? []).length ? ' is-active' : ''}`}
+              onClick={() => toggleSourceFilter('')}
             >
-              {source.display_name || source.slug}
-              <span>{sourceFilteredCounts.get(String(source.slug).toLowerCase()) || 0}</span>
+              All <span>{allSourceFilteredCount}</span>
             </button>
-          ))}
-        </div>
-      ) : null}
+            {(catalog?.sources ?? []).map((source) => (
+              <button
+                key={source.slug}
+                type="button"
+                className={`source-filter-pill${(filters.sources ?? []).includes(source.slug) ? ' is-active' : ''}`}
+                onClick={() => toggleSourceFilter(source.slug)}
+              >
+                {source.display_name || source.slug}
+                <span>{sourceFilteredCounts.get(String(source.slug).toLowerCase()) || 0}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
-      <div className="toolbar">
+      <div className="toolbar yt-library-toolbar">
         <input
           className="search-input toolbar-search"
           type="search"
@@ -314,8 +301,9 @@ export function LibraryPage() {
       />
 
       {filtered.length === 0 ? (
-        <div className="empty-state">
-          No videos match this section and filters.
+        <div className="empty-state yt-empty-state">
+          <strong>No videos found</strong>
+          <span>Try another section, clear filters, or browse folders.</span>
           <div className="empty-state-actions">
             {folderBackPath ? (
               <button type="button" className="btn" onClick={() => navigate(folderBackPath)}>Back to folder</button>
@@ -396,7 +384,6 @@ export function LibraryPage() {
           }}
         />
       </FilterSheet>
-      <AppSlideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
     </div>
   );
 }

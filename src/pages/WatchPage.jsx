@@ -12,6 +12,7 @@ import { WatchRightDrawer } from '../components/WatchRightDrawer.jsx';
 import { useDb } from '../context/DbContext.jsx';
 import { usePlayability } from '../context/PlayabilityContext.jsx';
 import { useBookmarkPlayback } from '../hooks/useBookmarkPlayback.js';
+import { usePwaActions } from '../hooks/usePwaActions.js';
 import { useVerticalSwipe } from '../hooks/useVerticalSwipe.js';
 import { getBookmarkDisplayTitle, getBookmarkPageUrl } from '../lib/playback.js';
 
@@ -31,7 +32,8 @@ function sourceLabel(bookmark, catalog) {
 export function WatchPage() {
   const { tweetId } = useParams();
   const navigate = useNavigate();
-  const { isReady, hydrating, catalog, library } = useDb();
+  const { isReady, hydrating, catalog, library, updateBookmarkLocal } = useDb();
+  const { enqueue } = usePwaActions();
   const {
     playableBookmarks,
     busy,
@@ -57,7 +59,7 @@ export function WatchPage() {
   const [activeId, setActiveId] = useState(currentId);
   const [offsetY, setOffsetY] = useState(0);
   const [animating, setAnimating] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
+  const [controlsVisible, setControlsVisible] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [titleVisible, setTitleVisible] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
@@ -74,7 +76,7 @@ export function WatchPage() {
       setOffsetY(0);
       setFindingNext(false);
       setPendingNext(false);
-      setControlsVisible(true);
+      setControlsVisible(false);
       setDrawerOpen(false);
       setTitleVisible(false);
     }
@@ -139,7 +141,7 @@ export function WatchPage() {
     if (!nextId || nextId === activeId || animating) return;
     setAnimating(true);
     setOffsetY(toward === 'prev' ? 100 : -100);
-    setControlsVisible(true);
+    setControlsVisible(false);
     setDrawerOpen(false);
     setTitleVisible(false);
     setFindingNext(false);
@@ -371,6 +373,22 @@ export function WatchPage() {
     }
   }, [bookmark]);
 
+  const toggleFavourite = useCallback((event) => {
+    event.stopPropagation();
+    if (!bookmark?.tweet_id) return;
+    const favourite = !bookmark.is_favorite;
+    updateBookmarkLocal(bookmark.tweet_id, { is_favorite: favourite });
+    enqueue(favourite ? 'favourite' : 'unfavourite', bookmark.tweet_id);
+  }, [bookmark, enqueue, updateBookmarkLocal]);
+
+  const toggleArchive = useCallback((event) => {
+    event.stopPropagation();
+    if (!bookmark?.tweet_id) return;
+    const archived = !bookmark.is_archived;
+    updateBookmarkLocal(bookmark.tweet_id, { is_archived: archived });
+    enqueue(archived ? 'archive' : 'unarchive', bookmark.tweet_id);
+  }, [bookmark, enqueue, updateBookmarkLocal]);
+
   if (hydrating) {
     return <div className="page empty-state">Restoring your library…</div>;
   }
@@ -413,6 +431,27 @@ export function WatchPage() {
 
   return (
     <div className={`watch-feed ${controlsVisible ? 'controls-visible' : ''}`} {...swipeHandlers}>
+      <div className="watch-top-actions" onPointerUp={(event) => event.stopPropagation()}>
+        <button
+          type="button"
+          className={`watch-top-action ${bookmark.is_favorite ? 'is-active' : ''}`}
+          aria-label={bookmark.is_favorite ? 'Unfavourite bookmark' : 'Favourite bookmark'}
+          aria-pressed={Boolean(bookmark.is_favorite)}
+          onClick={toggleFavourite}
+        >
+          {bookmark.is_favorite ? '♥' : '♡'}
+        </button>
+        <button
+          type="button"
+          className={`watch-top-action archive ${bookmark.is_archived ? 'is-active' : ''}`}
+          aria-label={bookmark.is_archived ? 'Unarchive bookmark' : 'Archive bookmark'}
+          aria-pressed={Boolean(bookmark.is_archived)}
+          onClick={toggleArchive}
+        >
+          👎
+        </button>
+      </div>
+
       {controlsVisible && !findingNext ? (
         <div className="watch-feed-top watch-feed-top-overlay watch-chrome-fade is-visible">
           <button
