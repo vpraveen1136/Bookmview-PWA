@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { usePrivacy } from '../context/PrivacyContext.jsx';
 import { useScrollPreviewActive, useScrollPreviewRegistration } from '../context/ScrollPreviewContext.jsx';
 import { useLongPress } from '../hooks/useLongPress.js';
+import { usePwaActions } from '../hooks/usePwaActions.js';
+import { useDb } from '../context/DbContext.jsx';
 import { BookmarkQuickActionsSheet } from './BookmarkQuickActionsSheet.jsx';
 import { BookmarkScrollPreview } from './BookmarkScrollPreview.jsx';
 import { getBookmarkDisplayTitle, getBookmarkPageUrl, getBookmarkThumbnailUrl } from '../lib/playback.js';
@@ -21,6 +23,8 @@ export function BookmarkGridCard({
   scrollPreviewActive = false,
   cardRef = null,
 }) {
+  const { updateBookmarkLocal } = useDb();
+  const { enqueue } = usePwaActions();
   const { contentHidden } = usePrivacy();
   const previewRegisterRef = useScrollPreviewRegistration(item.tweet_id);
   const previewActiveFromScroll = useScrollPreviewActive(item.tweet_id);
@@ -39,6 +43,18 @@ export function BookmarkGridCard({
 
   const subtitle = subtitleParts.filter(Boolean).join(' · ') || 'Video';
   const pageUrl = getBookmarkPageUrl(item);
+
+  const toggleArchive = () => {
+    const archived = !item.is_archived;
+    updateBookmarkLocal(item.tweet_id, { is_archived: archived });
+    enqueue(archived ? 'archive' : 'unarchive', item.tweet_id);
+  };
+
+  const toggleFavourite = () => {
+    const favourite = !item.is_favorite;
+    updateBookmarkLocal(item.tweet_id, { is_favorite: favourite });
+    enqueue(favourite ? 'favourite' : 'unfavourite', item.tweet_id);
+  };
 
   const copyText = async (label, value) => {
     if (!value || !navigator.clipboard?.writeText) return;
@@ -109,6 +125,16 @@ export function BookmarkGridCard({
         onClose={() => setActionsOpen(false)}
         title={contentHidden ? 'Bookmark' : title}
         actions={[
+          {
+            id: 'toggle-favourite',
+            label: item.is_favorite ? 'Unfavourite' : 'Favourite',
+            onClick: toggleFavourite,
+          },
+          {
+            id: 'toggle-archive',
+            label: item.is_archived ? 'Unarchive' : 'Archive',
+            onClick: toggleArchive,
+          },
           {
             id: 'check-playability',
             label: checkingPlayability ? 'Checking playability…' : 'Check Playability',

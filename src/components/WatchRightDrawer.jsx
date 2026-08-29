@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 import { WatchPlaybackControls } from './WatchPlaybackControls.jsx';
 import { DefaultPlaybackModeSettings } from './DefaultPlaybackModeSettings.jsx';
+import { useDb } from '../context/DbContext.jsx';
+import { usePwaActions } from '../hooks/usePwaActions.js';
 import {
   getBookmarkPageUrl,
   resolvePlayMediaMp4Url,
@@ -48,6 +50,8 @@ export function WatchRightDrawer({
   playbackState,
   onShare,
 }) {
+  const { updateBookmarkLocal } = useDb();
+  const { enqueue } = usePwaActions();
   const [modeOpen, setModeOpen] = useState(false);
   const [copyNote, setCopyNote] = useState('');
 
@@ -70,6 +74,20 @@ export function WatchRightDrawer({
     onClose?.();
   };
 
+  const toggleArchive = () => {
+    if (!bookmark?.tweet_id) return;
+    const archived = !bookmark.is_archived;
+    updateBookmarkLocal(bookmark.tweet_id, { is_archived: archived });
+    enqueue(archived ? 'archive' : 'unarchive', bookmark.tweet_id);
+  };
+
+  const toggleFavourite = () => {
+    if (!bookmark?.tweet_id) return;
+    const favourite = !bookmark.is_favorite;
+    updateBookmarkLocal(bookmark.tweet_id, { is_favorite: favourite });
+    enqueue(favourite ? 'favourite' : 'unfavourite', bookmark.tweet_id);
+  };
+
   return (
     <>
       <div
@@ -85,6 +103,28 @@ export function WatchRightDrawer({
         onTouchStart={(event) => event.stopPropagation()}
       >
         <div className="watch-drawer-actions">
+          <button
+            type="button"
+            className="watch-drawer-action"
+            onClick={() => {
+              toggleFavourite();
+              closeAll();
+            }}
+          >
+            <span className="watch-drawer-icon" aria-hidden="true">★</span>
+            <span className="watch-drawer-label">{bookmark?.is_favorite ? 'Unfavourite' : 'Favourite'}</span>
+          </button>
+          <button
+            type="button"
+            className="watch-drawer-action"
+            onClick={() => {
+              toggleArchive();
+              closeAll();
+            }}
+          >
+            <span className="watch-drawer-icon" aria-hidden="true">A</span>
+            <span className="watch-drawer-label">{bookmark?.is_archived ? 'Unarchive' : 'Archive'}</span>
+          </button>
           {!spankbangEmbed ? (
             <button
               type="button"

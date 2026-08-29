@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { openDatabaseFromBuffer, openDatabaseFromFile } from '../db/loadDatabase.js';
 import { clearPersistedDatabase, loadPersistedDatabase, savePersistedDatabase } from '../db/persistedDb.js';
 import { loadWatchLibraryWithCatalog } from '../db/queries.js';
+import { applyQueuedActionsToLibrary, loadPwaActions } from '../lib/pwaActions.js';
 
 const DbContext = createContext(null);
 
@@ -29,10 +30,11 @@ export function DbProvider({ children }) {
 
     const nextDb = await openDatabaseFromBuffer(buffer);
     const { items, catalog: nextCatalog } = loadWatchLibraryWithCatalog(nextDb);
+    const overlaidItems = applyQueuedActionsToLibrary(items, loadPwaActions());
     dbRef.current = nextDb;
     setDb(nextDb);
     setFileName(name || 'bookmview.db');
-    setLibrary(items);
+    setLibrary(overlaidItems);
     setCatalog(nextCatalog);
     setLoadError('');
     setLoadKind(persist ? 'user_pick' : 'restore');
@@ -44,7 +46,7 @@ export function DbProvider({ children }) {
         console.warn('Could not persist database locally', error);
       }
     }
-    return items;
+    return overlaidItems;
   }, []);
 
   useEffect(() => {
@@ -97,6 +99,14 @@ export function DbProvider({ children }) {
     }
   }, []);
 
+  const updateBookmarkLocal = useCallback((tweetId, patch) => {
+    setLibrary((current) => current.map((item) => (
+      String(item.tweet_id) === String(tweetId)
+        ? { ...item, ...patch }
+        : item
+    )));
+  }, []);
+
   const loadFromFile = useCallback(async (file) => {
     setLoading(true);
     setLoadError('');
@@ -136,10 +146,11 @@ export function DbProvider({ children }) {
       hydrating,
       loadFromFile,
       closeDatabase,
+      updateBookmarkLocal,
       loadKind,
       isReady: Boolean(db),
     }),
-    [catalog, closeDatabase, db, fileName, hydrating, library, loadError, loadFromFile, loadKind, loading],
+    [catalog, closeDatabase, db, fileName, hydrating, library, loadError, loadFromFile, loadKind, loading, updateBookmarkLocal],
   );
 
   return <DbContext.Provider value={value}>{children}</DbContext.Provider>;

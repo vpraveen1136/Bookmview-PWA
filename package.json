@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/gh-pages-404.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:pwa-actions": "node --test test/pwaActions.test.js"
   },
   "dependencies": {
     "hls.js": "^1.6.2",

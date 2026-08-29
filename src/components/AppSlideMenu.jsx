@@ -1,12 +1,16 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
 import { DefaultPlaybackModeSettings } from './DefaultPlaybackModeSettings.jsx';
 import { useDb } from '../context/DbContext.jsx';
 import { getFolderTotals } from '../lib/categoryFolders.js';
+import { usePwaActions } from '../hooks/usePwaActions.js';
 
 export function AppSlideMenu({ open, onClose }) {
   const navigate = useNavigate();
   const { closeDatabase, fileName, library, catalog } = useDb();
+  const { summary: pwaActionSummary, exportChanges } = usePwaActions();
+  const [exportStatus, setExportStatus] = useState('');
 
   const onChangeDb = async () => {
     onClose?.();
@@ -17,6 +21,18 @@ export function AppSlideMenu({ open, onClose }) {
   const openFolder = (type) => {
     onClose?.();
     navigate(`/folders/${type}`);
+  };
+
+  const onExportChanges = async () => {
+    setExportStatus('Preparing export...');
+    try {
+      const result = await exportChanges();
+      setExportStatus(result.ok
+        ? `Exported ${result.count} changes. Copy ${result.filename} to Google Drive / BookmView.`
+        : result.message);
+    } catch (error) {
+      setExportStatus(error?.message || 'Export failed. Pending changes were kept.');
+    }
   };
 
   return (
@@ -43,6 +59,22 @@ export function AppSlideMenu({ open, onClose }) {
           <button type="button" className="btn app-slide-menu-btn" onClick={onChangeDb}>
             Change DB
           </button>
+        </div>
+        <div className="app-slide-menu-section">
+          <h3 className="app-slide-menu-section-title">Sync Changes</h3>
+          <p className="app-slide-menu-hint">
+            {pwaActionSummary.pending} pending changes
+            {pwaActionSummary.exported ? ` · ${pwaActionSummary.exported} exported` : ''}
+          </p>
+          <button
+            type="button"
+            className="btn app-slide-menu-btn"
+            disabled={!pwaActionSummary.exportable}
+            onClick={onExportChanges}
+          >
+            Export Changes
+          </button>
+          {exportStatus ? <p className="app-slide-menu-hint">{exportStatus}</p> : null}
         </div>
         <div className="app-slide-menu-section">
           <h3 className="app-slide-menu-section-title">Sources</h3>
