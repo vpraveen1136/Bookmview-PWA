@@ -935,6 +935,21 @@ a {
   pointer-events: auto;
 }
 
+.watch-loading {
+  position: absolute;
+  z-index: 16;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, calc(-50% + 3.1rem));
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 44%);
+  color: rgb(255 255 255 / 88%);
+  font-size: 0.78rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
 .watch-seek-flash {
   position: absolute;
   z-index: 18;

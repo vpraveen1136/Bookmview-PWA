@@ -57,7 +57,7 @@ export function WatchPage() {
   const [activeId, setActiveId] = useState(currentId);
   const [offsetY, setOffsetY] = useState(0);
   const [animating, setAnimating] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [titleVisible, setTitleVisible] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
@@ -74,7 +74,7 @@ export function WatchPage() {
       setOffsetY(0);
       setFindingNext(false);
       setPendingNext(false);
-      setControlsVisible(false);
+      setControlsVisible(true);
       setDrawerOpen(false);
       setTitleVisible(false);
     }
@@ -139,7 +139,7 @@ export function WatchPage() {
     if (!nextId || nextId === activeId || animating) return;
     setAnimating(true);
     setOffsetY(toward === 'prev' ? 100 : -100);
-    setControlsVisible(false);
+    setControlsVisible(true);
     setDrawerOpen(false);
     setTitleVisible(false);
     setFindingNext(false);
