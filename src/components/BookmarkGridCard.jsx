@@ -22,6 +22,7 @@ export function BookmarkGridCard({
   scrollPreviewEnabled = false,
   scrollPreviewActive = false,
   cardRef = null,
+  onOpen,
 }) {
   const { updateBookmarkLocal } = useDb();
   const { enqueue } = usePwaActions();
@@ -74,7 +75,7 @@ export function BookmarkGridCard({
         onContextMenu={longPress.onContextMenu}
         onClickCapture={longPress.onClickCapture}
       >
-        <Link className="grid-card-link" to={to}>
+        <Link className="grid-card-link" to={to} onClick={() => onOpen?.(item)}>
           <div className="thumb-wrap" ref={thumbMeasureRef}>
             {contentHidden ? (
               <div className="thumb thumb-placeholder privacy-placeholder" aria-hidden="true">···</div>

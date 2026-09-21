@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { WatchFeedItem } from '../components/WatchFeedItem.jsx';
 import { WatchRightDrawer } from '../components/WatchRightDrawer.jsx';
@@ -15,6 +15,7 @@ import { useBookmarkPlayback } from '../hooks/useBookmarkPlayback.js';
 import { usePwaActions } from '../hooks/usePwaActions.js';
 import { useVerticalSwipe } from '../hooks/useVerticalSwipe.js';
 import { getBookmarkDisplayTitle, getBookmarkPageUrl } from '../lib/playback.js';
+import { loadWatchSequence } from '../lib/watchSequence.js';
 
 const TRANSITION_MS = 280;
 const AUTO_HIDE_MS = 3000;
@@ -32,6 +33,7 @@ function sourceLabel(bookmark, catalog) {
 export function WatchPage() {
   const { tweetId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isReady, hydrating, catalog, library, updateBookmarkLocal } = useDb();
   const { enqueue } = usePwaActions();
   const {
@@ -53,8 +55,8 @@ export function WatchPage() {
     return map;
   }, [library]);
 
-  const feed = playableBookmarks;
   const currentId = String(tweetId || '');
+  const sequenceSource = searchParams.get('seq') || '';
 
   const [activeId, setActiveId] = useState(currentId);
   const [offsetY, setOffsetY] = useState(0);
@@ -81,6 +83,21 @@ export function WatchPage() {
       setTitleVisible(false);
     }
   }, [currentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sequenceFeed = useMemo(() => {
+    if (sequenceSource !== 'home') return [];
+    return loadWatchSequence('home')
+      .map((id) => libraryById.get(String(id)))
+      .filter(Boolean);
+  }, [libraryById, sequenceSource]);
+
+  const sequenceIndex = useMemo(
+    () => sequenceFeed.findIndex((item) => String(item.tweet_id) === activeId),
+    [activeId, sequenceFeed],
+  );
+
+  const useSequenceFeed = sequenceSource === 'home' && sequenceIndex >= 0;
+  const feed = useSequenceFeed ? sequenceFeed : playableBookmarks;
 
   const index = useMemo(
     () => feed.findIndex((item) => String(item.tweet_id) === activeId),
@@ -133,8 +150,8 @@ export function WatchPage() {
   }, [bookmark, feed, inPlayableQueue, index]);
 
   const watchPath = useCallback(
-    (id) => `/watch/${encodeURIComponent(id)}`,
-    [],
+    (id) => `/watch/${encodeURIComponent(id)}${useSequenceFeed ? '?seq=home' : ''}`,
+    [useSequenceFeed],
   );
 
   const goToTweetId = useCallback((nextId, { toward } = {}) => {
@@ -177,14 +194,14 @@ export function WatchPage() {
       return;
     }
 
-    if (delta > 0 && nextIndex >= feed.length) {
+    if (!useSequenceFeed && delta > 0 && nextIndex >= feed.length) {
       setFindingNext(true);
       setPendingNext(true);
       if (hasMoreToProbe || capPaused) {
         requestMorePlayables();
       }
     }
-  }, [animating, feed, goToTweetId, hasMoreToProbe, capPaused, inPlayableQueue, index, requestMorePlayables]);
+  }, [animating, feed, goToTweetId, hasMoreToProbe, capPaused, inPlayableQueue, index, requestMorePlayables, useSequenceFeed]);
 
   useEffect(() => {
     if (!pendingNext || animating) return;
@@ -411,7 +428,7 @@ export function WatchPage() {
     transition: animating ? `transform ${TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)` : 'none',
   };
 
-  const counterLabel = inPlayableQueue && feed.length
+  const counterLabel = (inPlayableQueue || useSequenceFeed) && feed.length
     ? `${index + 1} / ${feed.length}`
     : null;
 

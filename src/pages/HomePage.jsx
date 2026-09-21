@@ -9,6 +9,7 @@ import { useGridColumns } from '../hooks/useGridColumns.js';
 import { applyLibraryFilters, formatDuration, getDurationMs, sortLibraryItems } from '../lib/libraryFilters.js';
 import { gridColumnsClass } from '../lib/gridColumns.js';
 import { scrollPreviewPrefetch } from '../lib/scrollPreviewPrefetch.js';
+import { saveWatchSequence } from '../lib/watchSequence.js';
 
 const HOME_BATCH_SIZE = 80;
 const homeFeedSessionState = {
@@ -136,6 +137,10 @@ export function HomePage() {
     setPullDistance(0);
   }, [shuffleHomeFeed]);
 
+  const saveHomeWatchSequence = useCallback(() => {
+    saveWatchSequence('home', allItems.map((item) => item.tweet_id));
+  }, [allItems]);
+
   if (hydrating) {
     return (
       <div className="page youtube-page">
@@ -189,7 +194,7 @@ export function HomePage() {
               <li key={item.tweet_id}>
                 <BookmarkGridCard
                   item={item}
-                  to={`/watch/${encodeURIComponent(item.tweet_id)}`}
+                  to={`/watch/${encodeURIComponent(item.tweet_id)}?seq=home`}
                   duration={formatDuration(getDurationMs(item))}
                   sourceLabel={source}
                   subtitleParts={[
@@ -199,6 +204,7 @@ export function HomePage() {
                     item.genres?.[0],
                   ]}
                   scrollPreviewEnabled={isXBookmark(item)}
+                  onOpen={saveHomeWatchSequence}
                 />
               </li>
             );
